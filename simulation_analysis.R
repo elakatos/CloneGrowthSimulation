@@ -1,5 +1,6 @@
+library('ggplot2'); library('reshape2'); library(ggpubr)
 
-dirList = c('18_04_26_3', '18_04_26_4', '18_04_25_3', '18_04_25_4')
+dirList = c('18_04_26_3', '18_04_26_4', '18_04_27_3', '18_04_27_4')
 
 p <- ggplot()
 p2 <- ggplot() +scale_x_continuous(limits=c(10, 200)) + scale_y_continuous(limits=c(0.04, 1))
@@ -24,7 +25,7 @@ vafInd <- melt(vafdata, id='invf')
 
 rsqDF[, dir] <- rsq
 mutrDF[, dir] <- mutrs
-if (startsWith(dir, '18_04_25')){mutrDF[,dir] <- mutrDF[,dir]/2}
+#if (startsWith(dir, '18_04_25')){mutrDF[,dir] <- mutrDF[,dir]/2}
 
 p <- p +
   geom_ribbon(data=vafSummary, aes(x = invf,ymin = avg - 2*sdev, ymax = avg+ 2*sdev),fill=colList[i], alpha=0.3) +
