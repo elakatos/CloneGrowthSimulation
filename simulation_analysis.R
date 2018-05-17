@@ -1,6 +1,7 @@
 library('ggplot2'); library('reshape2'); library(ggpubr)
 
-dirList = c('18_04_26_3', '18_04_26_4', '18_04_27_3', '18_04_27_4')
+#dirList = c('18_04_26_3', '18_04_26_4', '18_04_27_3', '18_04_27_4')
+dirList = c('18_05_10_1', '18_05_10_2', '18_05_10_3', '18_05_10_4')
 
 p <- ggplot()
 p2 <- ggplot() +scale_x_continuous(limits=c(10, 200)) + scale_y_continuous(limits=c(0.04, 1))
@@ -47,3 +48,42 @@ p3 <- ggplot(rsqM, aes(x=variable, y=value, fill=variable)) + geom_violin() +
 
 p4 <- ggplot(mutrM, aes(x=variable, y=value, fill=variable)) +
   geom_violin() + theme_bw() + scale_fill_manual(values=colList)
+
+
+
+# Biomodality in epitope-containing samples
+
+
+dir= '18_05_10_5'
+
+
+  vafdata <- read.table(paste0('~/CRCdata/Simulation_results/',dir,'/Vafdf.csv'), sep=',', header=T, row.names=1)
+  vafdata_ep <- read.table(paste0('~/CRCdata/Simulation_results/',dir,'/Vafdf_ep.csv'), sep=',', header=T, row.names=1)
+  names(vafdata_ep) <- sapply(names(vafdata_ep), function(x) paste0(x, '_ep'))
+  
+  vafdata_ratio <- vafdata_ep/vafdata
+  
+  #special_ind <- which(vafdata[nrow(vafdata),]>3500)
+  
+  vafdata$invf <- as.numeric(row.names(vafdata))
+  vafdata_ratio$invf <- as.numeric(row.names(vafdata_ratio))
+  
+  vafdata <- cbind(vafdata, vafdata_ep)
+  vafInd <- melt(vafdata, id='invf')
+  vafInd$type <- endsWith(as.character(vafInd$variable), "_ep")
+  
+  vafInd2 <- vafInd[vafInd$type,]
+  
+  vafRatioInd <- melt(vafdata_ratio, id='invf')
+  
+  pInd <- ggplot() +
+    geom_line(data=vafInd, aes(x=invf, y=value, group=variable, colour=type),alpha=0.1) +
+    theme_bw() #+ geom_line(data=vafSummary, aes(x=invf, y=avg),size=1.2)
+  pInd2 <- ggplot() +
+    geom_line(data=vafInd2, aes(x=invf, y=value, group=variable, colour=type),alpha=0.1) +
+    theme_bw() #+ geom_line(data=vafSummary, aes(x=invf, y=avg),size=1.2)
+  pRat <- pRat + 
+    geom_line(data=vafRatioInd, aes(x=invf, y=value, group=variable),color='red',alpha=0.1) +
+    theme_bw() +  scale_x_continuous(limits=c(1, 10))
+  
+  
