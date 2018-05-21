@@ -1,5 +1,7 @@
 library('ggplot2'); library('reshape2'); library(ggpubr)
 setwd('~/CRCdata/Simulation_results/')
+colList = c('darksalmon', 'burlywood3', 'skyblue3', 'darkseagreen3', 'mediumorchid3')
+
 
 #dirList = c('18_04_26_3', '18_04_26_4', '18_04_27_3', '18_04_27_4')
 dirList = c('18_05_10_1', '18_05_10_2', '18_05_10_3', '18_05_10_4')
@@ -17,7 +19,6 @@ cisDF <- data.frame(matrix(vector(), nrow=N))
 vafIndTotal <- data.frame(matrix(vector(), ncol=4))
 names(vafIndTotal) <- c('invf', 'variable', 'value', 'dir')
 
-colList = c('darksalmon', 'burlywood3', 'skyblue3', 'darkseagreen3', 'mediumorchid3')
 i=1
 
 for (dir in dirList){
@@ -127,35 +128,31 @@ dir= '18_05_10_3'
     geom_line(data=vafRatioInd, aes(x=invf, y=value, group=variable),color='red',alpha=0.1) +
     theme_bw() +  scale_x_continuous(limits=c(1, 10))
   
-  
-#Read in cell-immunogenicity stats
-  
-cellImm <- scan(file='18_05_10_3/run_julia_simulations_batch.sh.o', what=character(), sep='\n')  
-cellImm <- cellImm[seq(1, length(cellImm), by=2)]
-cellImmScore <- sapply(cellImm, function(x) 1e5-as.numeric(unlist(strsplit(x, ' '))[3]) )
-names(cellImmScore) <- names(vafdata[1:200])
-pI <- ggplot(cellImmScore)
+
 
 
 #Read in immunotherapy-sims
 
-cellImm <- scan(file='18_05_18_1/run_julia_simulations.sh.o', what=character(), sep='\n')  
-cellImm <- cellImm[seq(1, length(cellImm), by=2)]
-cellImmScore <- sapply(cellImm, function(x) (1e5-as.numeric(unlist(strsplit(x, ' '))[3]))/1e5 )
+# cellImm <- scan(file='18_05_18_1/run_julia_simulations.sh.o', what=character(), sep='\n')  
+# cellImm <- cellImm[seq(1, length(cellImm), by=2)]
+# cellImmScore <- sapply(cellImm, function(x) (1e5-as.numeric(unlist(strsplit(x, ' '))[3]))/1e5 )
 
+dir = '18_05_18_2'
 
-pIT <- ggplot()
-mycols <- colList[c(1,3)]
+pIT <- ggplot() + scale_color_gradientn(colours=c('darkblue','skyblue4', 'grey80','darksalmon', 'darkred'), values=c(0, 0.2, 0.4, 0.7, 1)) + theme_bw()
 
-for (i in 1:100){
-  ind <- cellImmScore[i]<1
-Npost <- read.table(paste0('18_05_18_1/postIT_',i,'.txt'), header=T, sep=',')
+for (i in 1:200){
+Npost <- read.table(paste0(dir,'/postIT_',i,'.txt'), header=T, sep=',')
 sparsedRows <- seq(1, nrow(Npost), round(nrow(Npost)/1000))
 Npost <- Npost[sparsedRows, ]
-pIT <- pIT + geom_line(data=Npost, aes(x=t, y=N), colour=mycols[ind+1], alpha=0.5) + theme_bw()
+ind <- Npost[1, 'nonImm'] > 0
+Npost$immScore <- 1-Npost$nonImm/Npost$N
+pIT <- pIT + geom_line(data=Npost, aes(x=t, y=N, colour=immScore), alpha=0.5)
 }
 
-pdf('Negative_post_intervention_0.pdf', width=6, height=5)
+pdf('Negative_post_intervention_2.pdf', width=6, height=5)
 pIT
 dev.off()
+
+Npost$immScore <- 1-Npost$nonImm/Npost$N
 
