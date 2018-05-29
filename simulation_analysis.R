@@ -137,22 +137,23 @@ dir= '18_05_10_3'
 # cellImm <- cellImm[seq(1, length(cellImm), by=2)]
 # cellImmScore <- sapply(cellImm, function(x) (1e5-as.numeric(unlist(strsplit(x, ' '))[3]))/1e5 )
 
-dir = '18_05_18_2'
+dirList <- c('18_05_18_5', '18_05_18_6', 
+             '18_05_18_7', '18_05_18_8', '18_05_21_1', '18_05_21_2',
+             '18_05_21_3', '18_05_21_4', '18_05_21_5', '18_05_21_6')
+
+for (dir in dirList){
 
 pIT <- ggplot() + scale_color_gradientn(colours=c('darkblue','skyblue4', 'grey80','darksalmon', 'darkred'), values=c(0, 0.2, 0.4, 0.7, 1)) + theme_bw()
 
 for (i in 1:200){
-Npost <- read.table(paste0(dir,'/postIT_',i,'.txt'), header=T, sep=',')
-sparsedRows <- seq(1, nrow(Npost), round(nrow(Npost)/1000))
-Npost <- Npost[sparsedRows, ]
-ind <- Npost[1, 'nonImm'] > 0
+Npost <- read.table(paste0(dir,'/postIT_sparse_',i,'.txt'), header=T, sep=',')
 Npost$immScore <- 1-Npost$nonImm/Npost$N
 pIT <- pIT + geom_line(data=Npost, aes(x=t, y=N, colour=immScore), alpha=0.5)
 }
 
-pdf('Negative_post_intervention_2.pdf', width=6, height=5)
-pIT
-dev.off()
+#pdf(paste0('PIT_N_', dir,'.pdf'), width=7, height=5)
+print(pIT)
+#dev.off()
+}
 
-Npost$immScore <- 1-Npost$nonImm/Npost$N
 
