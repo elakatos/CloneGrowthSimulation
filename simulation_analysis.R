@@ -7,6 +7,8 @@ colList = c('darksalmon', 'burlywood3', 'skyblue3', 'darkseagreen3', 'mediumorch
 dirList = c('18_05_10_1', '18_05_10_2', '18_05_10_3', '18_05_10_4')
 #dirList = c('18_05_15_1', '18_05_15_2', '18_05_15_3', '18_05_15_4')
 
+
+
 N <- 200
 
 p <- ggplot()
@@ -21,7 +23,16 @@ names(vafIndTotal) <- c('invf', 'variable', 'value', 'dir')
 
 i=1
 
-for (dir in dirList){
+pdf('~/Dropbox/Code/Sim_results/Pre_therapy_cumvaf_compilation.pdf', width=7, height=4.5)
+dirList <- c('18_05_18_3', '18_05_21_4', '18_05_21_3', '18_05_29_3', '18_05_21_5', '18_05_23_8', '18_05_29_5', '18_05_29_6')
+
+titleList <- c('Pre: negative', 'Pre: mild negative', 'Pre: neutral',
+               'Pre: neutral (lower neo-ep generation rate)', 'Pre: negative, Post: all negative, neo-ep stronger',
+               'Pre: negative, Post: all negative, neo-ep stronger', 'Pre: negative, Post: all negative, neo-ep stronger (lower neo-ep generation rate)',
+               'Pre: negative, Post: all negative, neo-ep stronger (small neo-ep generation rate)')
+for (ind in 1:length(dirList)){
+dir = dirList[ind]
+#for (dir in dirList){
 
 vafdata <- read.table(paste0(dir,'/Vafdf.csv'), sep=',', header=T, row.names=1)
 
@@ -36,29 +47,32 @@ vafdata$invf <- as.numeric(row.names(vafdata))
 vafInd <- melt(vafdata, id='invf')
 
 vafInd$dir <- dir
-vafIndTotal <- rbind(vafIndTotal, vafInd)
+#vafIndTotal <- rbind(vafIndTotal, vafInd)
 
 rsqDF[, dir] <- rsq
 mutrDF[, dir] <- mutrs
 rsqEpDF[, dir] <- rsqEp
 
-cellImm <- scan(file=paste0(dir,'/run_julia_simulations_batch.sh.o'), what=character(), sep='\n')  
-cellImm <- cellImm[seq(1, length(cellImm), by=2)]
-cellImmScore <- sapply(cellImm, function(x) (1e5-as.numeric(unlist(strsplit(x, ' '))[3]))/1e5 )
+#cellImm <- scan(file=paste0(dir,'/run_julia_simulations_batch.sh.o'), what=character(), sep='\n')  
+#cellImm <- cellImm[seq(1, length(cellImm), by=2)]
+#cellImmScore <- sapply(cellImm, function(x) (1e5-as.numeric(unlist(strsplit(x, ' '))[3]))/1e5 )
 
-cisDF[,dir] <- cellImmScore
+#cisDF[,dir] <- cellImmScore
 
-p <- p +
-  geom_ribbon(data=vafSummary, aes(x = invf,ymin = avg - 2*sdev, ymax = avg+ 2*sdev),fill=colList[i], alpha=0.3) +
-  #geom_line(data=vafInd, aes(x=invf, y=value, group=variable),colour='grey20',alpha=0.1) +
-  theme_bw() + geom_line(data=vafSummary, aes(x=invf, y=avg),size=1.2)
+p <- ggplot() +
+  #geom_ribbon(data=vafSummary, aes(x = invf,ymin = avg - 2*sdev, ymax = avg+ 2*sdev),fill=colList[i], alpha=0.3) +
+  geom_line(data=vafInd, aes(x=invf, y=value, group=variable),colour='grey20',alpha=0.1) +
+ theme_bw() + labs(x='1/VAF', y='cumulative distribution', title=titleList[ind])#+ geom_line(data=vafSummary, aes(x=invf, y=avg),size=1.2)
 
-p2 <- p2 +
-  geom_line(data=vafSummary, aes(x=invf, y=sdev/avg), colour=colList[i]) + theme_bw()
+#p2 <- p2 +
+#  geom_line(data=vafSummary, aes(x=invf, y=sdev/avg), colour=colList[i]) + theme_bw()
+
+print(p)
 
 i = i+1
 
 }
+dev.off()
 
 mutrM <- melt(mutrDF)
 rsqM <- melt(rsqDF)
@@ -137,23 +151,34 @@ dir= '18_05_10_3'
 # cellImm <- cellImm[seq(1, length(cellImm), by=2)]
 # cellImmScore <- sapply(cellImm, function(x) (1e5-as.numeric(unlist(strsplit(x, ' '))[3]))/1e5 )
 
-dirList <- c('18_05_18_5', '18_05_18_6', 
-             '18_05_18_7', '18_05_18_8', '18_05_21_1', '18_05_21_2',
-             '18_05_21_3', '18_05_21_4', '18_05_21_5', '18_05_21_6')
+pdf('~/Dropbox/Code/Sim_results/Post_therapy_tumour_size_compilation.pdf', width=8, height=5)
+dirList <- c('18_05_18_3', '18_05_21_4', '18_05_21_3', '18_05_29_3', '18_05_21_5', '18_05_23_8', '18_05_29_5', '18_05_29_6')
 
-for (dir in dirList){
+titleList <- c('Pre: negative', 'Pre: mild negative', 'Pre: neutral',
+               'Pre: neutral (lower neo-ep generation rate)', 'Pre: negative, Post: all negative, neo-ep stronger',
+               'Pre: negative, Post: all negative, neo-ep stronger', 'Pre: negative, Post: all negative, neo-ep stronger (lower neo-ep generation rate)',
+               'Pre: negative, Post: all negative, neo-ep stronger (small neo-ep generation rate)')
+for (ind in 1:length(dirList)){
 
-pIT <- ggplot() + scale_color_gradientn(colours=c('darkblue','skyblue4', 'grey80','darksalmon', 'darkred'), values=c(0, 0.2, 0.4, 0.7, 1)) + theme_bw()
+pIT <- ggplot() + scale_color_gradientn(colours=c('darkblue','skyblue4', 'grey80','darksalmon', 'darkred'), values=c(0, 0.2, 0.4, 0.7, 1), limits=c(0,1)) +
+  theme_bw() + labs(x='Time post therapy [a.u.]', y='Number of tumour cells', title=titleList[ind])
+pImS <- ggplot() + theme_bw()
 
 for (i in 1:200){
-Npost <- read.table(paste0(dir,'/postIT_sparse_',i,'.txt'), header=T, sep=',')
+Npost <- read.table(paste0(dirList[ind],'/postIT_sparse_',i,'.txt'), header=T, sep=',')
 Npost$immScore <- 1-Npost$nonImm/Npost$N
 pIT <- pIT + geom_line(data=Npost, aes(x=t, y=N, colour=immScore), alpha=0.5)
+pImS <- pImS + geom_line(data=Npost, aes(x=t, y=immScore), alpha=0.5)
 }
 
-#pdf(paste0('PIT_N_', dir,'.pdf'), width=7, height=5)
+# pdf(paste0('PIT_ImmScore_', dir,'.pdf'), width=7, height=5)
 print(pIT)
-#dev.off()
+# dev.off()
+# pdf(paste0('PIT_N_', dir,'.pdf'), width=7, height=5)
+# print(pIT)
+# dev.off()
+
 }
+dev.off()
 
 

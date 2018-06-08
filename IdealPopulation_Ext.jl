@@ -185,7 +185,7 @@ outvafDF = DataFrame(invf = (1./steps - 1/fmax))
 outvafEpDF = DataFrame(invf = (1./steps - 1/fmax))
 outfimDF = DataFrame(f=steps)
 outfimEpDF = DataFrame(f=steps)
-for i=1:200
+for i=1:50
     Nvec, tvec, muts, neoep_muts, cells = tumourgrow_birthdeath_neoep(1, d0, 1, d_, popSize, p);
     mutR, VAFtotal, VAFep = process_mutations(cells, neoep_muts, detLim, popSize, mu)
     cumcount, cumfm, rsq = analyse_vaf(VAFtotal, steps, fmin, fmax)

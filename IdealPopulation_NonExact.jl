@@ -12,7 +12,8 @@ function newmutations(cancercell, mutID, p)
     mutID = mutID + numbermutations
     
     neoep = rand()<p
-    if neoep
+    neoep_effective = neoep * (rand()<0.1)
+    if neoep_effective
         cancercell.fitness = 0
     end
 
