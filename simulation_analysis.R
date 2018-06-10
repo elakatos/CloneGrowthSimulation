@@ -137,9 +137,10 @@ dir= '18_05_10_3'
 # cellImm <- cellImm[seq(1, length(cellImm), by=2)]
 # cellImmScore <- sapply(cellImm, function(x) (1e5-as.numeric(unlist(strsplit(x, ' '))[3]))/1e5 )
 
-dirList <- c('18_05_18_5', '18_05_18_6', 
+dirList <- c('18_05_18_1', '18_05_18_5', '18_05_18_6', 
              '18_05_18_7', '18_05_18_8', '18_05_21_1', '18_05_21_2',
-             '18_05_21_3', '18_05_21_4', '18_05_21_5', '18_05_21_6')
+             '18_05_21_3', '18_05_21_4', '18_05_21_5', '18_05_21_6',
+             '18_05_23_3', '18_05_23_4', '18_05_23_5', '18_05_23_6', '18_05_23_7', '18_05_23_8')
 
 for (dir in dirList){
 
@@ -151,9 +152,9 @@ Npost$immScore <- 1-Npost$nonImm/Npost$N
 pIT <- pIT + geom_line(data=Npost, aes(x=t, y=N, colour=immScore), alpha=0.5)
 }
 
-#pdf(paste0('PIT_N_', dir,'.pdf'), width=7, height=5)
+pdf(paste0('PIT_N_', dir,'.pdf'), width=7, height=5)
 print(pIT)
-#dev.off()
+dev.off()
 }
 
 
