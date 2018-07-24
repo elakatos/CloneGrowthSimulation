@@ -13,10 +13,13 @@ function newmutations(cancercell, mutID, p)
     
     neoep = rand()<p
     if neoep
-        cancercell.fitness = 0
+        neoep_value = rand() #Figure out what kind of distribution to sample from!!!
+        cancercell.fitness = min(1-neoep_value, cancercell.fitness) #Figure out how fitness and neoep strength relate!
+    else
+        neoep_value = 0
     end
 
-    return cancercell, mutID, neoep
+    return cancercell, mutID, neoep_value
 end
 
 function copycell(cancercellold::cancercell)
@@ -55,6 +58,8 @@ function tumourgrow_birthdeath_neoep(b0, d0, b_, d_, Nmax, p)
         r = rand(Uniform(0,Rmax))
         Nt = N
         
+        #Set death rate on a scale between d0 (fitness=1) and d_ (fitness=0)
+        d = d0 + cells[randcell].fitness*(d_-d0)
         if cells[randcell].fitness==0 #set death rate according to whether cell is antigenic or not
             d = d_
         else
