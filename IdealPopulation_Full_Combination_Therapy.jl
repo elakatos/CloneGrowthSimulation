@@ -123,9 +123,9 @@ function tumourgrow_birthdeath_neoep(b0, d0, b_, d_, Nmax, p)
 
         #every cell dies reinitialize simulation
         if (N == 0)
-                mutID = 1
         cells = cancercell[]
         muts = Int64[]
+        mutID = 1
     neoep_muts = Int64[]
     push!(cells,cancercell([],1))
             for i=1:10
