@@ -39,9 +39,8 @@ function tumourgrow_birthdeath_neoep(b0, d0, b_, d_, Nmax, p, initial_mut=10)
     for i=1:initial_mut
         cells[1],mutID,neoep = newmutations(cells[1],mutID, p)
         if neoep
-            push!(neoep_muts, mutID)
+            push!(neoep_muts, mutID-1)
         end
-        push!(muts,mutID)
     end
     N = 1
     Nvec = Int64[]
@@ -53,7 +52,7 @@ function tumourgrow_birthdeath_neoep(b0, d0, b_, d_, Nmax, p, initial_mut=10)
     nonimmvec = Int64[]
     push!(nonimmvec, nonimm)
 
-    while (N < Nmax) & (t < 75) #set so we can exit simulation where there is a lot of death
+    while (N < Nmax) & (t < 250) #set so we can exit simulation where there is a lot of death
 
         #pick a random cell
         randcell = rand(1:N)
@@ -77,14 +76,12 @@ function tumourgrow_birthdeath_neoep(b0, d0, b_, d_, Nmax, p, initial_mut=10)
             nonimm = nonimm - cells[randcell].fitness
             #add new mutations to both new cells
             cells[randcell],mutID,neoep = newmutations(cells[randcell],mutID, p)
-            push!(muts,mutID)
             if neoep
-                push!(neoep_muts, mutID)
+                push!(neoep_muts, mutID-1)
             end
             cells[end],mutID,neoep = newmutations(cells[end],mutID, p)
-            push!(muts,mutID)
             if neoep
-                push!(neoep_muts, mutID)
+                push!(neoep_muts, mutID-1)
             end
             #note down non/immunogenicity stored in fitness for the new cells:
             nonimm = nonimm + cells[randcell].fitness + cells[end].fitness
@@ -131,7 +128,7 @@ function tumourgrow_birthdeath_neoep(b0, d0, b_, d_, Nmax, p, initial_mut=10)
             for i=1:initial_mut
                 cells[1],mutID,neoep = newmutations(cells[1],mutID, p)
                 if neoep
-                    push!(neoep_muts, mutID)
+                    push!(neoep_muts, mutID-1)
                 end
             end
             N = 1
@@ -160,7 +157,8 @@ function process_mutations(cells, neoep_muts, detLim, popSize)
     append!(VAFtotal, VAF)
 
     VAFep = collect(values(detEpMutDict))/(2*popSize)
-    println("Mutations processed for ", length(cells), "cells.")
+    println("Mutations processed for ", length(cells), " cells.")
+    println("Mutations found with VAF>0.01: ", sum(VAF.>0.01)) 
     return detMutDict, detEpMutDict, VAFtotal, VAFep
 
 end
@@ -193,10 +191,11 @@ outvafDF = DataFrame(invf = (1./steps - 1/fmax))
 outvafEpDF = DataFrame(invf = (1./steps - 1/fmax))
 outfimDF = DataFrame(f=steps)
 outfimEpDF = DataFrame(f=steps)
-for i=1:200
-    Nvec, tvec, mutID, neoep_muts, cells, immune = tumourgrow_birthdeath_neoep(1, d0, 1, d_, popSize, p, initial_mut);
+for i=1:25
+    initial_mut = 10
+     Nvec, tvec, mutID, neoep_muts, cells, immune = tumourgrow_birthdeath_neoep(1, d0, 1, d_, popSize, p, initial_mut);
     outNDFsim = DataFrame(t=tvec, N=Nvec, nonImm=immune)
-    writetable("preIT_"*string(i)*".txt", outNDFsim) #Record population size during simulation
+    #writetable("preIT_"*string(i)*".txt", outNDFsim) #Record population size during simulation
 
     detMutDict, detEpMutDict, VAFtotal, VAFep = process_mutations(cells, neoep_muts, detLim, popSize)
     mutR = length(detEpMutDict)/length(detMutDict)
@@ -216,10 +215,3 @@ for i=1:200
 
 end
 
-writetable("Vafdf.csv",outvafDF)
-writetable("Fimdf.csv",outfimDF)
-writetable("Vafdf_ep.csv",outvafEpDF)
-writetable("Fimdf_ep.csv",outfimEpDF)
-writedlm("Rsqs.txt",outRvec)
-writedlm("Rsqs_ep.txt", outREpvec)
-writedlm("MutRatios.txt", outMutRvec)

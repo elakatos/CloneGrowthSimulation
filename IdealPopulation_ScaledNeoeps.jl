@@ -14,6 +14,7 @@ function newmutations(cancercell, mutID, p, neoep_dist)
     neoep = rand()<p
     if neoep
         neoep_value = min.(1, rand(neoep_dist)/10 ) #Take distribution from top-defined params
+        neoep_value = max.(0, neoep_value)
         cancercell.fitness = min.(1-neoep_value, cancercell.fitness) #Take the minimum as fitness value
     else
         neoep_value = 0
@@ -75,7 +76,7 @@ function tumourgrow_birthdeath_neoep(b0, d0, b_, d_, Nmax, p, neoep_dist)
             cells[randcell],mutID,neoep_val = newmutations(cells[randcell],mutID, p, neoep_dist)
             muts[mutID] = neoep_val
 
-            cells[end],mutID,neoep = newmutations(cells[end],mutID, p, neoep_dist)
+            cells[end],mutID,neoep_val = newmutations(cells[end],mutID, p, neoep_dist)
             muts[mutID] = neoep_val
 
             #note down non/immunogenicity stored in fitness for the new cells:
