@@ -2,7 +2,8 @@ using Distributions, StatsBase, DataFrames, GLM
 
 type cancercell
     mutations::Array{Int64,1}
-    fitness::Int64
+    fitness::Float64
+    epnumber::Int64
     escaped::Bool
 end
 
@@ -12,7 +13,8 @@ function newmutations(cancercell, mutID, p, pesc)
     
     neoep = rand()<p
     if neoep
-        cancercell.fitness = 0
+        cancercell.epnumber = cancercell.epnumber + 1
+        cancercell.fitness = getFitness(cancercell.epnumber) #fitness is affected by the number of mutations
     end
 
     mut_escape = rand()<pesc
@@ -24,7 +26,7 @@ function newmutations(cancercell, mutID, p, pesc)
 end
 
 function copycell(cancercellold::cancercell)
-  newcancercell::cancercell = cancercell(copy(cancercellold.mutations), copy(cancercellold.fitness), copy(cancercellold.escaped))
+  newcancercell::cancercell = cancercell(copy(cancercellold.mutations), copy(cancercellold.fitness), copy(cancercellold.epnumber),copy(cancercellold.escaped))
 end
 
 function start_population(p, initial_mut, pesc,allowNeoep=true)
@@ -33,7 +35,7 @@ function start_population(p, initial_mut, pesc,allowNeoep=true)
     cells = cancercell[]
     neoep_muts = Int64[]
     esc_muts = Int64[]
-    push!(cells,cancercell([],1, false))
+    push!(cells,cancercell([],1, 0, false))
     for i=1:initial_mut
         cells[1],mutID,neoep,mut_escape = newmutations(cells[1],mutID, p,pesc)
         if neoep
@@ -49,7 +51,7 @@ function start_population(p, initial_mut, pesc,allowNeoep=true)
         neoep_muts = Int64[]
     end
 
-    nonimm = cells[1].fitness
+    nonimm = 1*(cells[1].fitness==1)
 
     return cells, mutID, neoep_muts, esc_muts, nonimm, N
 
@@ -60,7 +62,7 @@ function birthdeath_neoep(b0, d0, b_, d_, Nmax, p, initial_mut, mu, pesc)
     Rmax = b0+d_ #Rmax is given by d_ as it is always >= d0
 
     #initialize arrays and parameters
-    cells, mutID, neoep_muts, esc_muts, nonimm, N = start_population(p, initial_mut, pesc, true)
+    cells, mutID, neoep_muts, esc_muts, nonimm, N = start_population(p, initial_mut, pesc)
     Nvec = Int64[]
     push!(Nvec,N)
     t = 0.0
@@ -76,14 +78,10 @@ function birthdeath_neoep(b0, d0, b_, d_, Nmax, p, initial_mut, mu, pesc)
         r = rand(Uniform(0,Rmax)) #Pick which reaction should happen to cell
         Nt = N
         
-        if cells[randcell].fitness==0 #set death rate according to whether cell is antigenic or not
-            if cells[randcell].escaped #discard effect of fitness if 
+        if cells[randcell].escaped # discard effect of fitness if the cell escape
                 d = d0
-            else
-                d = d_
-            end
         else
-            d = d0
+                d = d0 + (1-cells[randcell].fitness) * (d_ - d0) #otherwise set death rate accordingly
         end
 
         # If r < birthrate, a birth event happens: a new cell is created and randcell updated as a new one
@@ -94,7 +92,7 @@ function birthdeath_neoep(b0, d0, b_, d_, Nmax, p, initial_mut, mu, pesc)
             #copy cell and mutations for cell that reproduces
             push!(cells, copycell(cells[randcell]))
             #total fitness (nonimmunogenicity) decreases as it might change in mutation step
-            nonimm = nonimm - cells[randcell].fitness
+            nonimm = nonimm - 1*(cells[randcell].fitness==1)
 
             #add new mutations to both new cells, the number of mutations is Poisson distributed
             for i=1:(rand(Poisson(mu)))
@@ -117,7 +115,7 @@ function birthdeath_neoep(b0, d0, b_, d_, Nmax, p, initial_mut, mu, pesc)
             end
 
             #note down (non)immunogenicity stored in fitness for the new cells:
-            nonimm = nonimm + cells[randcell].fitness + cells[end].fitness
+            nonimm = nonimm + 1*(cells[randcell].fitness==1) + 1*(cells[end].fitness==1)
             
             push!(nonimmvec, nonimm)
             push!(Nvec, N)
@@ -141,7 +139,7 @@ function birthdeath_neoep(b0, d0, b_, d_, Nmax, p, initial_mut, mu, pesc)
 
             #population decreases by 1, overall fitness score also decreases if it was non-zero
             N = N - 1
-            nonimm = nonimm - cells[randcell].fitness
+            nonimm = nonimm - 1*(cells[randcell].fitness==1)
 
             #remove deleted cell
             deleteat!(cells,randcell)
@@ -154,7 +152,7 @@ function birthdeath_neoep(b0, d0, b_, d_, Nmax, p, initial_mut, mu, pesc)
 
         #if every cell dies, restart simulation from a single cell again
         if (N == 0)
-            cells, mutID, neoep_muts, esc_muts, nonimm, N = start_population(p, initial_mut, pesc, true)
+            cells, mutID, neoep_muts, esc_muts, nonimm, N = start_population(p, initial_mut, pesc)
             push!(Nvec,N)
             push!(nonimmvec, nonimm)
             push!(tvec,t)
