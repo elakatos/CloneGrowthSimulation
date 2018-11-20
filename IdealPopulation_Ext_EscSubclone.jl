@@ -305,8 +305,8 @@ for i=1:50
     subcloneSize = convert(Int64, floor(popSize/2))
     popSize = convert(Int64, popSize)
 
-    for i=1:subcloneSize
-        cells[i].escaped = true
+    for j=1:subcloneSize
+        cells[j].escaped = true
     end
 
     cells_sc1 = cells[1:subcloneSize] # escaped subclone
@@ -324,7 +324,7 @@ for i=1:50
     detMutDictIT2 = process_mutations(cellsIT2, detLim)
     writedlm("vaf_postIT_"*string(i)*".txt",detMutDictIT2)
 
-    writedlm("neoep_mutationsIT_"*string(i)*".txt", neoep_mutsIT2)
+    writedlm("neoep_mutationsIT2_"*string(i)*".txt", neoep_mutsIT2)
 
     end
 
