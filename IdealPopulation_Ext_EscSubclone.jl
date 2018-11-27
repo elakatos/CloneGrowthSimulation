@@ -62,7 +62,7 @@ function birthdeath_neoep(b0, d0, b_, d_, Nmax, p, initial_mut, mu, pesc)
     Rmax = b0+d_ #Rmax is given by d_ as it is always >= d0
 
     #initialize arrays and parameters
-    cells, mutID, neoep_muts, esc_muts, nonimm, N = start_population(p, initial_mut, pesc)
+    cells, mutID, neoep_muts, esc_muts, nonimm, N = start_population(p, initial_mut, pesc, false)
     Nvec = Int64[]
     push!(Nvec,N)
     t = 0.0
@@ -152,7 +152,7 @@ function birthdeath_neoep(b0, d0, b_, d_, Nmax, p, initial_mut, mu, pesc)
 
         #if every cell dies, restart simulation from a single cell again
         if (N == 0)
-            cells, mutID, neoep_muts, esc_muts, nonimm, N = start_population(p, initial_mut, pesc)
+            cells, mutID, neoep_muts, esc_muts, nonimm, N = start_population(p, initial_mut, pesc, false)
             push!(Nvec,N)
             push!(nonimmvec, nonimm)
             push!(tvec,t)
@@ -271,13 +271,13 @@ function tumourgrow_post_it(b0, d0, b_, d_, Tmax, cells, mutID, neoep_muts, esc_
         end
 
        #if we reach a high population showing exponential growth, also jump to Tmax
-       if (N > 1.5*startPopSize)
+       if (N >= 50000)
          t = Tmax
        end
 
     end
     
-    return Nvec, tvec, cells,nonimmvec, neoep_muts, esc_muts
+    return Nvec, tvec, cells,nonimmvec, neoep_muts, esc_muts, mutID
 end
 
 function process_mutations(cells, detLim)
@@ -314,17 +314,16 @@ for i=1:50
     neoep_muts_clonal = copy(neoep_muts)
 
     # Run simulation for both subclones from this time
-    NvecIT, tvecIT, cellsIT, immuneIT, neoep_mutsIT, esc_mutsIT = tumourgrow_post_it(1, d0, 1, d_, Tmax, cells_sc1, mutID, neoep_muts, esc_muts, mu, pesc)
+    NvecIT, tvecIT, cellsIT, immuneIT, neoep_mutsIT, esc_mutsIT, mutIDIT = tumourgrow_post_it(1, d0, 1, d_, Tmax, cells_sc1, mutID, neoep_muts, esc_muts, mu, pesc)
     detMutDictIT = process_mutations(cellsIT, detLim)
     writedlm("vaf_postIT_"*string(i)*".txt",detMutDictIT)
-
     writedlm("neoep_mutationsIT_"*string(i)*".txt", neoep_mutsIT)
 
-    NvecIT2, tvecIT2, cellsIT2, immuneIT2, neoep_mutsIT2, esc_mutsIT2 = tumourgrow_post_it(1, d0, 1, d_, Tmax, cells_sc2, mutID, neoep_muts_clonal, esc_muts, mu, pesc)
+    NvecIT2, tvecIT2, cellsIT2, immuneIT2, neoep_mutsIT2, esc_mutsIT2, mutIDIT2 = tumourgrow_post_it(1, d0, 1, d_, Tmax, cells_sc2, mutIDIT, neoep_muts_clonal, esc_muts, mu, pesc)
     detMutDictIT2 = process_mutations(cellsIT2, detLim)
-    writedlm("vaf_postIT_"*string(i)*".txt",detMutDictIT2)
-
+    writedlm("vaf_postIT2_"*string(i)*".txt",detMutDictIT2)
     writedlm("neoep_mutationsIT2_"*string(i)*".txt", neoep_mutsIT2)
+
 
     end
 
