@@ -3,6 +3,7 @@ using Distributions, StatsBase, DataFrames, GLM
 type cancercell
     mutations::Array{Int64,1}
     fitness::Float64
+    epnumber::Int64
     escaped1::Bool #Two types of immune escape documented separately
     escaped2::Bool
 end
@@ -10,15 +11,6 @@ end
 function newmutations(cancercell, mutID, p, pesc, esc_effect)
     cancercell.mutations = append!(cancercell.mutations, mutID)
     mutID = mutID + 1
-    
-    neoep = rand()<p
-    if neoep
-        if cancercell.escaped2
-            cancercell.fitness = esc_effect
-        else
-            cancercell.fitness = 0
-        end
-    end
 
     mut_escape1 = rand()<pesc[1]
     mut_escape2 = rand()<pesc[2]
@@ -27,8 +19,16 @@ function newmutations(cancercell, mutID, p, pesc, esc_effect)
     end
     if mut_escape2
         cancercell.escaped2 = true
-        if cancercell.fitness == 0
-            cancercell.fitness = esc_effect
+        cancercell.fitness = getFitness(convert(Int64,floor(cancercell.epnumber * (1-esc_effect) )))
+    end
+
+    neoep = rand()<p
+    if neoep
+        cancercell.epnumber = cancercell.epnumber + 1
+        if cancercell.escaped2
+            cancercell.fitness = getFitness(convert(Int64,floor(cancercell.epnumber * (1-esc_effect) )))
+        else
+            cancercell.fitness = getFitness(cancercell.epnumber) #fitness is affected by the number of mutations
         end
     end
 
@@ -36,7 +36,7 @@ function newmutations(cancercell, mutID, p, pesc, esc_effect)
 end
 
 function copycell(cancercellold::cancercell)
-  newcancercell::cancercell = cancercell(copy(cancercellold.mutations), copy(cancercellold.fitness), copy(cancercellold.escaped1), copy(cancercellold.escaped2))
+  newcancercell::cancercell = cancercell(copy(cancercellold.mutations), copy(cancercellold.fitness), copy(cancercellold.epnumber), copy(cancercellold.escaped1), copy(cancercellold.escaped2))
 end
 
 function start_population(p, initial_mut, pesc, esc_effect, allowNeoep=true)
@@ -45,7 +45,7 @@ function start_population(p, initial_mut, pesc, esc_effect, allowNeoep=true)
     cells = cancercell[]
     neoep_muts = Int64[]
     esc_muts = Dict{Int64, Int64}()
-    push!(cells,cancercell([],1, false, false))
+    push!(cells,cancercell([],1, 0, false, false))
     for i=1:initial_mut
         cells[1],mutID,neoep, mut_escape1, mut_escape2 = newmutations(cells[1],mutID, p,pesc, esc_effect)
         if neoep
@@ -64,7 +64,9 @@ function start_population(p, initial_mut, pesc, esc_effect, allowNeoep=true)
         neoep_muts = Int64[]
     end
 
-    nonimm = cells[1].fitness
+    # Compute non-immune as: 1 for any without neoantigens. esc_effect for any with neoantigen, but with immune escape.
+    # 0 for first type of immune escape (PD-L1-type)
+    nonimm = 1*(cells[1].fitness==1) + esc_effect*(cells[1].fitness<1 && cells[1].escaped2==true)
 
     return cells, mutID, neoep_muts, esc_muts, nonimm, N
 
@@ -75,7 +77,7 @@ function birthdeath_neoep(b0, d0, b_, d_, Nmax, p, initial_mut, mu, pesc, esc_ef
     Rmax = b0+d_ #Rmax is given by d_ as it is always >= d0
 
     #initialize arrays and parameters
-    cells, mutID, neoep_muts, esc_muts, nonimm, N = start_population(p, initial_mut, pesc, esc_effect, true)
+    cells, mutID, neoep_muts, esc_muts, nonimm, N = start_population(p, initial_mut, pesc, esc_effect)
     Nvec = Int64[]
     push!(Nvec,N)
     t = 0.0
@@ -91,14 +93,10 @@ function birthdeath_neoep(b0, d0, b_, d_, Nmax, p, initial_mut, mu, pesc, esc_ef
         r = rand(Uniform(0,Rmax)) #Pick which reaction should happen to cell
         Nt = N
         
-        if cells[randcell].fitness==0 #set death rate according to whether cell is antigenic or not
-            if cells[randcell].escaped1 #discard effect of fitness if escaped
+        if cells[randcell].escaped1 #discard effect of fitness if escaped
                 d = d0
-            else
-                d = d_
-            end
         else
-            #Cells with partial escape are 'partially immunogenic' and have a deathrate inbetween
+            #Cells with type2 escape and without should be computed according to fitness that takes neoep number and esc into account
             d = d0 + (1-cells[randcell].fitness) * (d_ - d0)
         end
 
@@ -110,7 +108,7 @@ function birthdeath_neoep(b0, d0, b_, d_, Nmax, p, initial_mut, mu, pesc, esc_ef
             #copy cell and mutations for cell that reproduces
             push!(cells, copycell(cells[randcell]))
             #total fitness (nonimmunogenicity) decreases as it might change in mutation step
-            nonimm = nonimm - cells[randcell].fitness
+            nonimm = nonimm - (1*(cells[randcell].fitness==1) + esc_effect*(cells[randcell].fitness<1 && cells[randcell].escaped2==true))
 
             #add new mutations to both new cells, the number of mutations is Poisson distributed
             for i=1:(rand(Poisson(mu)))
@@ -141,7 +139,7 @@ function birthdeath_neoep(b0, d0, b_, d_, Nmax, p, initial_mut, mu, pesc, esc_ef
             end
 
             #note down (non)immunogenicity stored in fitness for the new cells:
-            nonimm = nonimm + cells[randcell].fitness + cells[end].fitness
+            nonimm = nonimm + 1*(cells[randcell].fitness==1) + esc_effect*(cells[randcell].fitness<1 && cells[randcell].escaped2==true) + 1*(cells[end].fitness==1) + esc_effect*(cells[end].fitness<1 && cells[end].escaped2==true)
             
             push!(nonimmvec, nonimm)
             push!(Nvec, N)
@@ -165,7 +163,7 @@ function birthdeath_neoep(b0, d0, b_, d_, Nmax, p, initial_mut, mu, pesc, esc_ef
 
             #population decreases by 1, overall fitness score also decreases if it was non-zero
             N = N - 1
-            nonimm = nonimm - cells[randcell].fitness
+            nonimm = nonimm - (1*(cells[randcell].fitness==1) + esc_effect*(cells[randcell].fitness<1 && cells[randcell].escaped2==true))
 
             #remove deleted cell
             deleteat!(cells,randcell)
@@ -178,7 +176,7 @@ function birthdeath_neoep(b0, d0, b_, d_, Nmax, p, initial_mut, mu, pesc, esc_ef
 
         #if every cell dies, restart simulation from a single cell again
         if (N == 0)
-            cells, mutID, neoep_muts, esc_muts, nonimm, N = start_population(p, initial_mut, pesc, esc_effect, true)
+            cells, mutID, neoep_muts, esc_muts, nonimm, N = start_population(p, initial_mut, pesc, esc_effect)
             push!(Nvec,N)
             push!(nonimmvec, nonimm)
             push!(tvec,t)
@@ -192,7 +190,7 @@ end
 function tumourgrow_post_it(b0, d0, b_, d_, Tmax, cells, mutID, neoep_muts, esc_muts, mu, pesc, esc_effect)
     #Function to track the population after it was subject to (immuno-)therapy
     #Follow through which mutations are neo-epitopes from previous simulation
-    #d_ and it's prevalence is modified from previous simulation according to type of therapy
+    #d_ and its prevalence is modified from previous simulation according to type of therapy
 
     Rmax = b0+d_
 
@@ -206,7 +204,7 @@ function tumourgrow_post_it(b0, d0, b_, d_, Tmax, cells, mutID, neoep_muts, esc_
     push!(tvec,t)
     nonimm = 0
     for i=1:length(cells)
-        nonimm = nonimm + cells[i].fitness
+        nonimm = nonimm + 1*(cells[i].fitness==1) + esc_effect*(cells[i].fitness<1 && cells[i].escaped2==true)
     end
     nonimmvec = Float64[]
     push!(nonimmvec, nonimm)
@@ -229,7 +227,7 @@ function tumourgrow_post_it(b0, d0, b_, d_, Tmax, cells, mutID, neoep_muts, esc_
             #copy cell and mutations for cell that reproduces
             push!(cells, copycell(cells[randcell]))
             #total fitness (nonimmunogenicity) decreases as it might change in mutation step
-            nonimm = nonimm - cells[randcell].fitness
+            nonimm = nonimm - (1*(cells[randcell].fitness==1) + esc_effect*(cells[randcell].fitness<1 && cells[randcell].escaped2==true))
 
             #add new mutations to both new cells, the number of mutations is Poisson distributed
             #still record escape mutations, but type1 does not carry any advantage anymore
@@ -261,7 +259,7 @@ function tumourgrow_post_it(b0, d0, b_, d_, Tmax, cells, mutID, neoep_muts, esc_
             end
 
             #note down (non)immunogenicity stored in fitness for the new cells:
-            nonimm = nonimm + cells[randcell].fitness + cells[end].fitness
+            nonimm = nonimm + 1*(cells[randcell].fitness==1) + esc_effect*(cells[randcell].fitness<1 && cells[randcell].escaped2==true) + 1*(cells[end].fitness==1) + esc_effect*(cells[end].fitness<1 && cells[end].escaped2==true)
             
             push!(nonimmvec, nonimm)
             push!(Nvec, N)
@@ -285,7 +283,7 @@ function tumourgrow_post_it(b0, d0, b_, d_, Tmax, cells, mutID, neoep_muts, esc_
 
             #population decreases by 1, overall fitness score also decreases if it was non-zero
             N = N - 1
-            nonimm = nonimm - cells[randcell].fitness
+            nonimm = nonimm - (1*(cells[randcell].fitness==1) + esc_effect*(cells[randcell].fitness<1 && cells[randcell].escaped2==true))
 
             #remove deleted cell
             deleteat!(cells,randcell)
