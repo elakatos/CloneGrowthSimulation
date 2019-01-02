@@ -81,7 +81,7 @@ function birthdeath_neoep(b0, d0, Nmax, p, initial_mut, mu, pesc)
         #pick a random cell
         randcell = rand(1:N)
         Nt = N
-        
+
         if cells[randcell].escaped # discard effect of fitness if the cell escape
                 d = d0
         else
@@ -98,8 +98,12 @@ function birthdeath_neoep(b0, d0, Nmax, p, initial_mut, mu, pesc)
 
         # If r < birthrate, a birth event happens: a new cell is created and randcell updated as a new one
         if r < b0
-
+            
             #population increases by one
+       if N==200
+            cells[randcell].escaped = true
+            println("Escape at clone size 200.\n")
+        end
             N = N + 1
             #copy cell and mutations for cell that reproduces
             push!(cells, copycell(cells[randcell]))
@@ -189,7 +193,7 @@ function process_mutations(cells, detLim)
 end
 
 
-for i=1:100
+for i=1:25
     Nvec, tvec, mutID, neoep_muts, cells, immune, esc_muts = birthdeath_neoep(1, d0, popSize, p, initial_mut, mu, pesc);
     outNDFsim = DataFrame(t=tvec, N=Nvec, nonImm=immune)
     writetable("preIT_"*string(i)*".txt", outNDFsim) #Record population size during simulation

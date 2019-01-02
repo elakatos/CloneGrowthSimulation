@@ -55,6 +55,9 @@ function start_population(p, initial_mut, pesc,allowNeoep=true)
         cells[1].epnumber=0
         neoep_muts = Int64[]
     end
+    
+    push!(esc_muts, mutID-1)
+    cells[1].escaped = true
 
     nonimm = 1*(cells[1].epnumber==0)
 

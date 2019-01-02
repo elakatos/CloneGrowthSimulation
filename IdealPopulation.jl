@@ -1,5 +1,9 @@
 using Distributions, StatsBase, DataFrames, GLM
 
+function getFitness(n)
+        (1 + s*n)
+end
+
 type cancercell
     mutations::Array{Int64,1}
     fitness::Float64
@@ -38,18 +42,19 @@ function start_population(p, initial_mut, allowNeoep=true)
 
     if allowNeoep==false #overwrite to make sure first cell contains no neoepitopes
         cells[1].fitness=1
+        cells[1].epnumber=0
         neoep_muts = Int64[]
     end
 
-    nonimm = 1*(cells[1].fitness==1)
+    nonimm = 1*(cells[1].epnumber==0)
 
     return cells, mutID, neoep_muts, nonimm, N
 
 end
 
-function birthdeath_neoep(b0, d0, b_, d_, Nmax, p, initial_mut=10, mu=1)
+function birthdeath_neoep(b0, d0, Nmax, p, initial_mut=10, mu=1)
 
-    Rmax = b0+d_ #Rmax is given by d_ as it is always >= d0
+    dmax = d0 #dmax is updated throughout, starts from d0
 
     #initialize arrays and parameters
     cells, mutID, neoep_muts, nonimm, N = start_population(p, initial_mut)
@@ -65,12 +70,18 @@ function birthdeath_neoep(b0, d0, b_, d_, Nmax, p, initial_mut=10, mu=1)
 
         #pick a random cell
         randcell = rand(1:N)
-        r = rand(Uniform(0,Rmax)) #Pick which reaction should happen to cell
         Nt = N
         
         #a cell's immunogenicity depends on its fitness, i.e. number of neoepitopes
-        d = d0 + (1-cells[randcell].fitness) * (d_ - d0)
-        
+        d = (d0 - b0)*cells[randcell].fitness + b0
+
+        if (d > dmax) #update dmax to keep track of the highest death rate in the whole population
+            dmax = d
+        end
+
+        Rmax = b0 + dmax
+
+        r = rand(Uniform(0,Rmax)) #Pick which reaction should happen to cell     
 
         # If r < birthrate, a birth event happens: a new cell is created and randcell updated as a new one
         if r < b0
@@ -80,7 +91,7 @@ function birthdeath_neoep(b0, d0, b_, d_, Nmax, p, initial_mut=10, mu=1)
             #copy cell and mutations for cell that reproduces
             push!(cells, copycell(cells[randcell]))
             #total fitness (nonimmunogenicity) decreases as it might change in mutation step
-            nonimm = nonimm - 1*(cells[randcell].fitness==1)
+            nonimm = nonimm - 1*(cells[randcell].epnumber==0)
 
             #add new mutations to both new cells, the number of mutations is Poisson distributed
             for i=1:(rand(Poisson(mu)))
@@ -97,7 +108,7 @@ function birthdeath_neoep(b0, d0, b_, d_, Nmax, p, initial_mut=10, mu=1)
             end
 
             #note down (non)immunogenicity stored in fitness for the new cells:
-            nonimm = nonimm + 1*(cells[randcell].fitness==1) + 1*(cells[end].fitness==1)
+            nonimm = nonimm + 1*(cells[randcell].epnumber==0) + 1*(cells[end].epnumber==0)
             
             push!(nonimmvec, nonimm)
             push!(Nvec, N)
@@ -121,7 +132,7 @@ function birthdeath_neoep(b0, d0, b_, d_, Nmax, p, initial_mut=10, mu=1)
 
             #population decreases by 1, overall fitness score also decreases if it was non-zero
             N = N - 1
-            nonimm = nonimm - 1*(cells[randcell].fitness==1)
+            nonimm = nonimm - 1*(cells[randcell].epnumber==0)
 
             #remove deleted cell
             deleteat!(cells,randcell)
@@ -160,7 +171,7 @@ end
 
 
 for i=1:100
-    Nvec, tvec, mutID, neoep_muts, cells, immune = birthdeath_neoep(1, d0, 1, d_, popSize, p, initial_mut, mu);
+    Nvec, tvec, mutID, neoep_muts, cells, immune = birthdeath_neoep(1, d0, popSize, p, initial_mut, mu);
     outNDFsim = DataFrame(t=tvec, N=Nvec, nonImm=immune)
     writetable("preIT_"*string(i)*".txt", outNDFsim) #Record population size during simulation
 

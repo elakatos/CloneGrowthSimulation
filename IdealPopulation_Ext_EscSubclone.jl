@@ -1,5 +1,9 @@
 using Distributions, StatsBase, DataFrames, GLM
 
+function getFitness(n)
+        (1 + s*n)
+end
+
 type cancercell
     mutations::Array{Int64,1}
     fitness::Float64
@@ -48,18 +52,19 @@ function start_population(p, initial_mut, pesc,allowNeoep=true)
 
     if allowNeoep==false #overwrite to make sure first cell contains no neoepitopes
         cells[1].fitness=1
+        cells[1].epnumber=0
         neoep_muts = Int64[]
     end
 
-    nonimm = 1*(cells[1].fitness==1)
+    nonimm = 1*(cells[1].epnumber==0)
 
     return cells, mutID, neoep_muts, esc_muts, nonimm, N
 
 end
 
-function birthdeath_neoep(b0, d0, b_, d_, Nmax, p, initial_mut, mu, pesc)
+function birthdeath_neoep(b0, d0, Nmax, p, initial_mut, mu, pesc)
 
-    Rmax = b0+d_ #Rmax is given by d_ as it is always >= d0
+    dmax = d0 #dmax is updated throughout, starts from d0
 
     #initialize arrays and parameters
     cells, mutID, neoep_muts, esc_muts, nonimm, N = start_population(p, initial_mut, pesc, false)
@@ -75,14 +80,21 @@ function birthdeath_neoep(b0, d0, b_, d_, Nmax, p, initial_mut, mu, pesc)
 
         #pick a random cell
         randcell = rand(1:N)
-        r = rand(Uniform(0,Rmax)) #Pick which reaction should happen to cell
         Nt = N
         
         if cells[randcell].escaped # discard effect of fitness if the cell escape
                 d = d0
         else
-                d = d0 + (1-cells[randcell].fitness) * (d_ - d0) #otherwise set death rate accordingly
+                d = (d0 - b0)*cells[randcell].fitness + b0
         end
+
+        if (d > dmax) #update dmax to keep track of the highest death rate in the whole population
+            dmax = d
+        end
+
+        Rmax = b0 + dmax
+
+        r = rand(Uniform(0,Rmax)) #Pick which reaction should happen to cell
 
         # If r < birthrate, a birth event happens: a new cell is created and randcell updated as a new one
         if r < b0
@@ -92,7 +104,7 @@ function birthdeath_neoep(b0, d0, b_, d_, Nmax, p, initial_mut, mu, pesc)
             #copy cell and mutations for cell that reproduces
             push!(cells, copycell(cells[randcell]))
             #total fitness (nonimmunogenicity) decreases as it might change in mutation step
-            nonimm = nonimm - 1*(cells[randcell].fitness==1)
+            nonimm = nonimm - 1*(cells[randcell].epnumber==0)
 
             #add new mutations to both new cells, the number of mutations is Poisson distributed
             for i=1:(rand(Poisson(mu)))
@@ -115,7 +127,7 @@ function birthdeath_neoep(b0, d0, b_, d_, Nmax, p, initial_mut, mu, pesc)
             end
 
             #note down (non)immunogenicity stored in fitness for the new cells:
-            nonimm = nonimm + 1*(cells[randcell].fitness==1) + 1*(cells[end].fitness==1)
+            nonimm = nonimm + 1*(cells[randcell].epnumber==0) + 1*(cells[end].epnumber==0)
             
             push!(nonimmvec, nonimm)
             push!(Nvec, N)
@@ -139,7 +151,7 @@ function birthdeath_neoep(b0, d0, b_, d_, Nmax, p, initial_mut, mu, pesc)
 
             #population decreases by 1, overall fitness score also decreases if it was non-zero
             N = N - 1
-            nonimm = nonimm - 1*(cells[randcell].fitness==1)
+            nonimm = nonimm - 1*(cells[randcell].epnumber==0)
 
             #remove deleted cell
             deleteat!(cells,randcell)
@@ -164,12 +176,12 @@ function birthdeath_neoep(b0, d0, b_, d_, Nmax, p, initial_mut, mu, pesc)
 end
 
 
-function tumourgrow_post_it(b0, d0, b_, d_, Tmax, cells, mutID, neoep_muts, esc_muts, mu, pesc)
+function tumourgrow_post_it(b0, d0, Tmax, cells, mutID, neoep_muts, esc_muts, mu, pesc)
     #Function to track the population after it was subject to (immuno-)therapy
     #Follow through which mutations are neo-epitopes from previous simulation
     #d_ and its prevalence is modified from previous simulation according to type of therapy
 
-    Rmax = b0+d_
+    dmax = d0
 
     #initialize arrays and parameters: use the cells inherited from prior simulation to define quantities
     startPopSize = length(cells)
@@ -181,7 +193,7 @@ function tumourgrow_post_it(b0, d0, b_, d_, Tmax, cells, mutID, neoep_muts, esc_
     push!(tvec,t)
     nonimm = 0
     for i=1:length(cells)
-        nonimm = nonimm + 1*(cells[i].fitness==1)
+        nonimm = nonimm + 1*(cells[i].epnumber==0)
     end
     nonimmvec = Float64[]
     push!(nonimmvec, nonimm)
@@ -190,14 +202,21 @@ function tumourgrow_post_it(b0, d0, b_, d_, Tmax, cells, mutID, neoep_muts, esc_
 
         #pick a random cell
         randcell = rand(1:N)
-        r = rand(Uniform(0,Rmax)) #Pick which reaction should happen to cell
         Nt = N
         
         if cells[randcell].escaped # discard effect of fitness if the cell escape
                 d = d0
         else
-                d = d0 + (1-cells[randcell].fitness) * (d_ - d0) #otherwise set death rate accordingly
+                d = (d0 - b0)*cells[randcell].fitness + b0
         end
+
+        if (d > dmax) #update dmax to keep track of the highest death rate in the whole population
+            dmax = d
+        end
+
+        Rmax = b0 + dmax
+
+        r = rand(Uniform(0,Rmax)) #Pick which reaction should happen to cell
 
         # If r < birthrate, a birth event happens: a new cell is created and randcell updated as a new one
         if r < b0
@@ -207,7 +226,7 @@ function tumourgrow_post_it(b0, d0, b_, d_, Tmax, cells, mutID, neoep_muts, esc_
             #copy cell and mutations for cell that reproduces
             push!(cells, copycell(cells[randcell]))
             #total fitness (nonimmunogenicity) decreases as it might change in mutation step
-            nonimm = nonimm - 1*(cells[randcell].fitness==1)
+            nonimm = nonimm - 1*(cells[randcell].epnumber==0)
 
             #add new mutations to both new cells, the number of mutations is Poisson distributed
             for i=1:(rand(Poisson(mu)))
@@ -230,7 +249,7 @@ function tumourgrow_post_it(b0, d0, b_, d_, Tmax, cells, mutID, neoep_muts, esc_
             end
 
             #note down (non)immunogenicity stored in fitness for the new cells:
-            nonimm = nonimm + 1*(cells[randcell].fitness==1) + 1*(cells[end].fitness==1)
+            nonimm = nonimm + 1*(cells[randcell].epnumber==0) + 1*(cells[end].epnumber==0)
             
             push!(nonimmvec, nonimm)
             push!(Nvec, N)
@@ -254,7 +273,7 @@ function tumourgrow_post_it(b0, d0, b_, d_, Tmax, cells, mutID, neoep_muts, esc_
 
             #population decreases by 1, overall fitness score also decreases if it was non-zero
             N = N - 1
-            nonimm = nonimm - 1*(cells[randcell].fitness==1)
+            nonimm = nonimm - 1*(cells[randcell].epnumber==0)
 
             #remove deleted cell
             deleteat!(cells,randcell)
@@ -295,7 +314,7 @@ end
 
 simNum = 0
 for i=1:50
-    Nvec, tvec, mutID, neoep_muts, cells, immune, esc_muts = birthdeath_neoep(1, d0, 1, d_, popSize, p, initial_mut, mu, pesc);
+    Nvec, tvec, mutID, neoep_muts, cells, immune, esc_muts = birthdeath_neoep(1, d0, popSize, p, initial_mut, mu, pesc);
 
     detMutDict = process_mutations(cells, detLim)
     writedlm("vaf_preIT_"*string(i)*".txt",detMutDict) #Save mutation-VAF pairs
@@ -314,12 +333,12 @@ for i=1:50
     neoep_muts_clonal = copy(neoep_muts)
 
     # Run simulation for both subclones from this time
-    NvecIT, tvecIT, cellsIT, immuneIT, neoep_mutsIT, esc_mutsIT, mutIDIT = tumourgrow_post_it(1, d0, 1, d_, Tmax, cells_sc1, mutID, neoep_muts, esc_muts, mu, pesc)
+    NvecIT, tvecIT, cellsIT, immuneIT, neoep_mutsIT, esc_mutsIT, mutIDIT = tumourgrow_post_it(1, d0, Tmax, cells_sc1, mutID, neoep_muts, esc_muts, mu, pesc)
     detMutDictIT = process_mutations(cellsIT, detLim)
     writedlm("vaf_postIT_"*string(i)*".txt",detMutDictIT)
     writedlm("neoep_mutationsIT_"*string(i)*".txt", neoep_mutsIT)
 
-    NvecIT2, tvecIT2, cellsIT2, immuneIT2, neoep_mutsIT2, esc_mutsIT2, mutIDIT2 = tumourgrow_post_it(1, d0, 1, d_, Tmax, cells_sc2, mutIDIT, neoep_muts_clonal, esc_muts, mu, pesc)
+    NvecIT2, tvecIT2, cellsIT2, immuneIT2, neoep_mutsIT2, esc_mutsIT2, mutIDIT2 = tumourgrow_post_it(1, d0, Tmax, cells_sc2, mutIDIT, neoep_muts_clonal, esc_muts, mu, pesc)
     detMutDictIT2 = process_mutations(cellsIT2, detLim)
     writedlm("vaf_postIT2_"*string(i)*".txt",detMutDictIT2)
     writedlm("neoep_mutationsIT2_"*string(i)*".txt", neoep_mutsIT2)
