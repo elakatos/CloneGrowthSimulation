@@ -73,7 +73,7 @@ function birthdeath_neoep(b0, d0, Nmax, p, initial_mut=10, mu=1)
         Nt = N
         
         #a cell's immunogenicity depends on its fitness, i.e. number of neoepitopes
-        d = (d0 - b0)*cells[randcell].fitness + b0
+        d = max(0, (d0 - b0)*cells[randcell].fitness + b0)
 
         if (d > dmax) #update dmax to keep track of the highest death rate in the whole population
             dmax = d
