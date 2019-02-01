@@ -4,7 +4,7 @@ Mutations accumulated in a developing tumour can give rise to genetic alteration
 
 ## Simulation details
 
-![Schematics of a few steps of the simulation](Figure_1_modelSimulation.pdf)
+![Schematics of a few steps of the simulation](Model.png)
 
 First, a single progenitor cell is defined that already carries a set of mutations providing it with sufficient growth/survival advantage to outgrow a normal cell population. Each of the cell’s mutations have a unique identifier, and that cell has an intrinsic immunogenicity value determined by its mutations. Starting from this single-cell tumour, in each simulation step a cell in the population is selected, and that cell undergoes one of three possible life events:
 
