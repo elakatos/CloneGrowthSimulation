@@ -8,9 +8,10 @@ type cancercell
     mutations::Array{Int64,1}
     fitness::Float64
     epnumber::Float64
+    escaped::Bool
 end
 
-function newmutations(cancercell, mutID, p)
+function newmutations(cancercell, mutID, p, pesc)
     cancercell.mutations = append!(cancercell.mutations, mutID)
     mutID = mutID + 1
     
@@ -23,41 +24,52 @@ function newmutations(cancercell, mutID, p)
         neoep_value = 0
     end
 
-    return cancercell, mutID, neoep_value
+    mut_escape = rand()<pesc
+    if mut_escape
+        cancercell.escaped = true
+    end
+
+    return cancercell, mutID, neoep_value, mut_escape
 end
 
 function copycell(cancercellold::cancercell)
-  newcancercell::cancercell = cancercell(copy(cancercellold.mutations), copy(cancercellold.fitness), copy(cancercellold.epnumber))
+  newcancercell::cancercell = cancercell(copy(cancercellold.mutations), copy(cancercellold.fitness), copy(cancercellold.epnumber),copy(cancercellold.escaped))
 end
 
-function start_population(p, initial_mut, allowNeoep=true)
+function start_population(p, initial_mut, pesc, allowNeoep=true)
     mutID = 1
     N = 1
     cells = cancercell[]
-    muts = Dict{Int64, Float64}()
-    push!(cells,cancercell([],1,0))
+    muts = Int64[]
+    esc_muts = Int64[]
+    push!(cells,cancercell([],1,0, false))
     for i=1:initial_mut
         if allowNeoep
-            cells[1],mutID,neoep_val = newmutations(cells[1],mutID, p)
+            cells[1],mutID,neoep_val,mut_escape = newmutations(cells[1],mutID, p, pesc)
         else
-            cells[1],mutID,neoep_val = newmutations(cells[1],mutID, 0)
+            cells[1],mutID,neoep_val,mut_escape = newmutations(cells[1],mutID, 0, pesc)
         end
 
-        muts[mutID-1] = neoep_val
+        if neoep_val > 0.2
+            push!(muts, mutID-1)
+        end
+        if mut_escape
+            push!(esc_muts, mutID-1)
+        end
     end
 
     nonimm = 1*(cells[1].epnumber<immThresh)
 
-    return cells, mutID, muts, nonimm, N
+    return cells, mutID, muts, esc_muts, nonimm, N
 
 end
 
-function birthdeath_neoep(b0, d0, Nmax, p, initial_mut=10, mu=1)
+function birthdeath_neoep(b0, d0, Nmax, p,pesc, initial_mut=10, mu=1)
 
     dmax = d0 #dmax is updated throughout, starts from d0
 
     #initialize arrays and parameters
-    cells, mutID, muts, nonimm, N = start_population(p, initial_mut)
+    cells, mutID, muts, esc_muts, nonimm, N = start_population(p, initial_mut, pesc)
     Nvec = Int64[]
     push!(Nvec,N)
     t = 0.0
@@ -74,6 +86,10 @@ function birthdeath_neoep(b0, d0, Nmax, p, initial_mut=10, mu=1)
         
         #a cell's immunogenicity depends on its fitness, i.e. the summed antigenicity of neoepitopes
         d = max(0, (d0 - b0)*cells[randcell].fitness + b0)
+
+        if cells[randcell].escaped # discard effect of fitness if the cell escape
+                d = d0
+        end
 
         if (d > dmax) #update dmax to keep track of the highest death rate in the whole population
             dmax = d
@@ -95,12 +111,22 @@ function birthdeath_neoep(b0, d0, Nmax, p, initial_mut=10, mu=1)
 
             #add new mutations to both new cells, the number of mutations is Poisson distributed
             for i=1:(rand(Poisson(mu)))
-                cells[randcell],mutID,neoep_val = newmutations(cells[randcell],mutID, p)
-                muts[mutID-1] = neoep_val
+                cells[randcell],mutID,neoep_val,mut_escape = newmutations(cells[randcell],mutID, p,pesc)
+                if neoep_val > 0.2
+                    push!(muts, mutID-1)
+                end
+                if mut_escape
+                    push!(esc_muts, mutID-1)
+                end
             end
             for i=1:(rand(Poisson(mu)))
-                cells[end],mutID,neoep_val = newmutations(cells[end],mutID, p)
-                muts[mutID-1] = neoep_val
+                cells[end],mutID,neoep_val,mut_escape = newmutations(cells[end],mutID, p,pesc)
+                if neoep_val > 0.2
+                    push!(muts, mutID-1)
+                end
+                if mut_escape
+                    push!(esc_muts, mutID-1)
+                end
             end
 
             #note down (non)immunogenicity stored in fitness for the new cells:
@@ -141,7 +167,7 @@ function birthdeath_neoep(b0, d0, Nmax, p, initial_mut=10, mu=1)
 
         #if every cell dies, restart simulation from a single cell again
         if (N == 0)
-            cells, mutID, muts, nonimm, N = start_population(p, initial_mut)
+            cells, mutID, muts,esc_muts, nonimm, N = start_population(p, initial_mut,pesc)
             push!(Nvec,N)
             push!(nonimmvec, nonimm)
             push!(tvec,t)
@@ -149,7 +175,7 @@ function birthdeath_neoep(b0, d0, Nmax, p, initial_mut=10, mu=1)
 
     end
     
-    return Nvec, tvec, mutID, muts, cells, nonimmvec
+    return Nvec, tvec, mutID, muts,esc_muts, cells, nonimmvec
 end
 
 function process_mutations(cells, detLim)
@@ -165,16 +191,20 @@ function process_mutations(cells, detLim)
 
 end
 
+i = 1
+while (i < 51)
+    Nvec, tvec, mutID, muts,esc_muts, cells, immune = birthdeath_neoep(1, d0, popSize, p,pesc, initial_mut, mu);
+    if Nvec[end]>0.5*popSize
+        outNDFsim = DataFrame(t=tvec, N=Nvec, nonImm=immune)
+        #writetable("preIT_"*string(i)*".txt", outNDFsim) #Record population size during simulation
 
-for i=1:50
-    Nvec, tvec, mutID, muts, cells, immune = birthdeath_neoep(1, d0, popSize, p, initial_mut, mu);
-    outNDFsim = DataFrame(t=tvec, N=Nvec, nonImm=immune)
-   #writetable("preIT_"*string(i)*".txt", outNDFsim) #Record population size during simulation
+        detMutDict = process_mutations(cells, detLim)
+        writedlm("vaf_preIT_"*string(i)*".txt",detMutDict) #Save mutation-VAF pairs
 
-    detMutDict = process_mutations(cells, detLim)
-    writedlm("vaf_preIT_"*string(i)*".txt",detMutDict) #Save mutation-VAF pairs
-
-    writedlm("all_mutations_"*string(i)*".txt", muts) #Dictionary storing mutations and their immunogenicity
+        writedlm("neoep_mutations_"*string(i)*".txt", muts) #List of neoantigen mutations
+        writedlm("escape_mutations_"*string(i)*".txt", esc_muts) #Write mutations if they caused escape
+        i = i+1
+    end
 
 end
 

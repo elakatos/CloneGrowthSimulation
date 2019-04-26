@@ -8,6 +8,7 @@ type cancercell
     mutations::Array{Int64,1}
     fitness::Float64
     epnumber::Float64
+    escaped::Bool
 end
 
 function newmutations(cancercell, mutID, p)
@@ -27,15 +28,15 @@ function newmutations(cancercell, mutID, p)
 end
 
 function copycell(cancercellold::cancercell)
-  newcancercell::cancercell = cancercell(copy(cancercellold.mutations), copy(cancercellold.fitness), copy(cancercellold.epnumber))
+  newcancercell::cancercell = cancercell(copy(cancercellold.mutations), copy(cancercellold.fitness), copy(cancercellold.epnumber), copy(cancercellold.escaped))
 end
 
-function start_population(p, initial_mut, allowNeoep=true)
+function start_population(p, initial_mut, clonalEscape, clonalNeoep, allowNeoep=true)
     mutID = 1
     N = 1
     cells = cancercell[]
     muts = Dict{Int64, Float64}()
-    push!(cells,cancercell([],1,0))
+    push!(cells,cancercell([],1,0,false))
     for i=1:initial_mut
         if allowNeoep
             cells[1],mutID,neoep_val = newmutations(cells[1],mutID, p)
@@ -46,18 +47,26 @@ function start_population(p, initial_mut, allowNeoep=true)
         muts[mutID-1] = neoep_val
     end
 
+    if clonalNeoep
+        muts[mutID-1] = 0.8
+        cells[1].epnumber = cells[1].epnumber + 0.8
+        cells[1].fitness = getFitness(cells[1].epnumber)
+    end
+
+    cells[1].escaped = clonalEscape
+
     nonimm = 1*(cells[1].epnumber<immThresh)
 
     return cells, mutID, muts, nonimm, N
 
 end
 
-function birthdeath_neoep(b0, d0, Nmax, p, initial_mut=10, mu=1)
+function birthdeath_neoep(b0, d0, Nmax, p, clonalEscape,clonalNeoep, initial_mut=10, mu=1)
 
     dmax = d0 #dmax is updated throughout, starts from d0
 
     #initialize arrays and parameters
-    cells, mutID, muts, nonimm, N = start_population(p, initial_mut)
+    cells, mutID, muts, nonimm, N = start_population(p, initial_mut, clonalEscape, clonalNeoep)
     Nvec = Int64[]
     push!(Nvec,N)
     t = 0.0
@@ -74,6 +83,10 @@ function birthdeath_neoep(b0, d0, Nmax, p, initial_mut=10, mu=1)
         
         #a cell's immunogenicity depends on its fitness, i.e. the summed antigenicity of neoepitopes
         d = max(0, (d0 - b0)*cells[randcell].fitness + b0)
+
+        if cells[randcell].escaped # discard effect of fitness if the cell escape
+            d = d0
+        end
 
         if (d > dmax) #update dmax to keep track of the highest death rate in the whole population
             dmax = d
@@ -141,7 +154,7 @@ function birthdeath_neoep(b0, d0, Nmax, p, initial_mut=10, mu=1)
 
         #if every cell dies, restart simulation from a single cell again
         if (N == 0)
-            cells, mutID, muts, nonimm, N = start_population(p, initial_mut)
+            cells, mutID, muts, nonimm, N = start_population(p, initial_mut, clonalEscape, clonalNeoep)
             push!(Nvec,N)
             push!(nonimmvec, nonimm)
             push!(tvec,t)
@@ -167,9 +180,9 @@ end
 
 
 for i=1:50
-    Nvec, tvec, mutID, muts, cells, immune = birthdeath_neoep(1, d0, popSize, p, initial_mut, mu);
+    Nvec, tvec, mutID, muts, cells, immune = birthdeath_neoep(1, d0, popSize, p, clonalEscape, clonalNeoep, initial_mut, mu);
     outNDFsim = DataFrame(t=tvec, N=Nvec, nonImm=immune)
-   #writetable("preIT_"*string(i)*".txt", outNDFsim) #Record population size during simulation
+    writetable("preIT_"*string(i)*".txt", outNDFsim) #Record population size during simulation
 
     detMutDict = process_mutations(cells, detLim)
     writedlm("vaf_preIT_"*string(i)*".txt",detMutDict) #Save mutation-VAF pairs
