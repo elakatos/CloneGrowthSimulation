@@ -1,3 +1,20 @@
+#=
+    Julia code implementing simulations of a stochastic branching process model of tumour growth and mutation accumulations, under negative selection from the immune system due to randomly arising antigenic mutations. This code corresponds to an ideal population/measurement, with no measurement noise (but intrinsic stochasticity) and user-defined detection limit for mutations.
+
+    For details of the model see Lakatos et al, biorXiv, 2019: https://www.biorxiv.org/content/10.1101/536433v1 and the Readme at https://github.com/elakatos/CloneGrowthSimulation
+
+    This file implements the base simulations with probabilistic active immune escape, acquired by chance throughout tumour growth.
+    Parameters: d0, popSize, detLim, p, initial_mut, mu, neoep_dist, pesc
+    Outputs:
+        - neoep_mutations_<i>.txt : list of mutations above antigenicity threshold 0.2
+        - escape_mutations_<i>.txt: list of immune escape mutations
+        - preIT_<i>.txt : cell growth curve with time, total population and non-immunogenic population in three comma-separated columns
+        - vaf_preIT_<i>.txt : every mutation present in >detLim cells and the number of cells its present, two tab-separated columns
+
+    @Author: Eszter Lakatos (e.lakatos@qmul.ac.uk)
+    Inspired by Marc J. Williams' CancerSeqSim (https://github.com/marcjwilliams1/CancerSeqSim.jl)
+=#
+
 using Distributions, StatsBase, DataFrames, GLM
 
 function getFitness(n)
@@ -11,7 +28,7 @@ type cancercell
     escaped::Bool
 end
 
-function newmutations(cancercell, mutID, p, pesc)
+function newmutations(cancercell, mutID, p, pesc, neoep_dist)
     cancercell.mutations = append!(cancercell.mutations, mutID)
     mutID = mutID + 1
     
@@ -36,7 +53,7 @@ function copycell(cancercellold::cancercell)
   newcancercell::cancercell = cancercell(copy(cancercellold.mutations), copy(cancercellold.fitness), copy(cancercellold.epnumber),copy(cancercellold.escaped))
 end
 
-function start_population(p, initial_mut, pesc, allowNeoep=true)
+function start_population(p, initial_mut, pesc, neoep_dist, allowNeoep=true, immThresh=0.5)
     mutID = 1
     N = 1
     cells = cancercell[]
@@ -45,9 +62,9 @@ function start_population(p, initial_mut, pesc, allowNeoep=true)
     push!(cells,cancercell([],1,0, false))
     for i=1:initial_mut
         if allowNeoep
-            cells[1],mutID,neoep_val,mut_escape = newmutations(cells[1],mutID, p, pesc)
+            cells[1],mutID,neoep_val,mut_escape = newmutations(cells[1],mutID, p, pesc, neoep_dist)
         else
-            cells[1],mutID,neoep_val,mut_escape = newmutations(cells[1],mutID, 0, pesc)
+            cells[1],mutID,neoep_val,mut_escape = newmutations(cells[1],mutID, 0, pesc, neoep_dist)
         end
 
         if neoep_val > 0.2
@@ -64,12 +81,12 @@ function start_population(p, initial_mut, pesc, allowNeoep=true)
 
 end
 
-function birthdeath_neoep(b0, d0, Nmax, p,pesc, initial_mut=10, mu=1)
+function birthdeath_neoep(b0, d0, Nmax, p,pesc,neoep_dist, initial_mut=10, mu=1, immThresh=0.5)
 
     dmax = d0 #dmax is updated throughout, starts from d0
 
     #initialize arrays and parameters
-    cells, mutID, muts, esc_muts, nonimm, N = start_population(p, initial_mut, pesc)
+    cells, mutID, muts, esc_muts, nonimm, N = start_population(p, initial_mut, pesc,neoep_dist)
     Nvec = Int64[]
     push!(Nvec,N)
     t = 0.0
@@ -111,7 +128,7 @@ function birthdeath_neoep(b0, d0, Nmax, p,pesc, initial_mut=10, mu=1)
 
             #add new mutations to both new cells, the number of mutations is Poisson distributed
             for i=1:(rand(Poisson(mu)))
-                cells[randcell],mutID,neoep_val,mut_escape = newmutations(cells[randcell],mutID, p,pesc)
+                cells[randcell],mutID,neoep_val,mut_escape = newmutations(cells[randcell],mutID, p,pesc, neoep_dist)
                 if neoep_val > 0.2
                     push!(muts, mutID-1)
                 end
@@ -120,7 +137,7 @@ function birthdeath_neoep(b0, d0, Nmax, p,pesc, initial_mut=10, mu=1)
                 end
             end
             for i=1:(rand(Poisson(mu)))
-                cells[end],mutID,neoep_val,mut_escape = newmutations(cells[end],mutID, p,pesc)
+                cells[end],mutID,neoep_val,mut_escape = newmutations(cells[end],mutID, p,pesc, neoep_dist)
                 if neoep_val > 0.2
                     push!(muts, mutID-1)
                 end
@@ -167,7 +184,7 @@ function birthdeath_neoep(b0, d0, Nmax, p,pesc, initial_mut=10, mu=1)
 
         #if every cell dies, restart simulation from a single cell again
         if (N == 0)
-            cells, mutID, muts,esc_muts, nonimm, N = start_population(p, initial_mut,pesc)
+            cells, mutID, muts,esc_muts, nonimm, N = start_population(p, initial_mut,pesc, neoep_dist)
             push!(Nvec,N)
             push!(nonimmvec, nonimm)
             push!(tvec,t)
@@ -193,10 +210,10 @@ end
 
 i = 1
 while (i < 51)
-    Nvec, tvec, mutID, muts,esc_muts, cells, immune = birthdeath_neoep(1, d0, popSize, p,pesc, initial_mut, mu);
+    Nvec, tvec, mutID, muts,esc_muts, cells, immune = birthdeath_neoep(1, d0, popSize, p,pesc,neoep_dist, initial_mut, mu);
     if Nvec[end]>0.5*popSize
         outNDFsim = DataFrame(t=tvec, N=Nvec, nonImm=immune)
-        #writetable("preIT_"*string(i)*".txt", outNDFsim) #Record population size during simulation
+        writetable("preIT_"*string(i)*".txt", outNDFsim) #Record population size during simulation
 
         detMutDict = process_mutations(cells, detLim)
         writedlm("vaf_preIT_"*string(i)*".txt",detMutDict) #Save mutation-VAF pairs
