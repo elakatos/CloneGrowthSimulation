@@ -29,11 +29,19 @@ In proliferation events, each daughter cell gains _N_m_ new, independent mutatio
 The above step of randomly selecting a cell and one of the three possible events is repeated until the tumour reaches a predefined population size (representing the tumour reaching a clinically detectable size, set by the value _popSize_) or sufficiently long time elapsed without tumour establishment (corresponding to no cancer formation in the patient’s lifetime, set to 300 time units).
 
 
-### Extended model & simulations with immune escape
+#### Simulations with immune escape
 
 We also consider the acquisition of immune escape through tumour growth. Immune escape is modelled as a heritable property of a cell, the Boolean variable _escaped_.
-The ability of immune evasion is gained either randomly during mutation acquisiton with probability _p_esc_; or through manually setting a particular cell's _escaped_ value to achieve clonal or subclonal escape.
+The ability of immune evasion is gained either randomly during mutation acquisiton with probability _pesc_; or through manually setting a particular cell's _escaped_ value to achieve clonal or subclonal escape.
 The simulated escape is an approximation of active evasion (such as PD-L1 overexpression), which shields the cell from negative selection (decreasing its death probability to _d0_) but leaves neoantigen-carrier cells highly immunogenic. This makes escaped cells vulnerable to the immune system after immunotherapy, simulated by the cancellation of the original shielding effect.
+
+### Running simulations
+
+The base simulation of the model can be found in _IdealPopulation_Scaled.jl_. All other files are based on the same code but contain small modifications, as explained in the header of each file, together with the parameters needed and outputs produced by the script. The parameters listed have to be defined for the script to run. An easy and flexible way to do so is creating a _parameters.txt_ file (or modifying the provided _parameters_example.txt_) and running the following:
+```bash
+cat parameters.txt IdealPopulation_Scaled.jl > CurrentSim.jl
+julia CurrentSim.jl
+```
 
 ## Results at a glance
 
