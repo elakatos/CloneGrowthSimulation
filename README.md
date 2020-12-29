@@ -1,6 +1,6 @@
 # CloneGrowthSimulation
 
-Mutations accumulated in a developing tumour can give rise to genetic alterations that lead to a novel peptide sequence presented on the cell surface and picked up by the immune system identifying the tumour as 'non-self'. Such mutations have the potential to elicit an immune response and consequently result in an increased death probability of their host cell. The scripts in this repository implement a stochastic branching process-based simulation of tumour growth, taking into account the chance acqusition of neoantigen/neoepitope mutations and consequent immune predation. For results and further discussion, see our preprint, [Evolutionary dynamics of neoantigens in growing tumours](https://www.biorxiv.org/content/10.1101/536433v1).
+Mutations accumulated in a developing tumour can give rise to genetic alterations that lead to a novel peptide sequence presented on the cell surface and picked up by the immune system identifying the tumour as 'non-self'. Such mutations have the potential to elicit an immune response and consequently result in an increased death probability of their host cell. The scripts in this repository implement a stochastic branching process-based simulation of tumour growth, taking into account the chance acqusition of neoantigen/neoepitope mutations and consequent immune predation. For results and further discussion, see our article, [Evolutionary dynamics of neoantigens in growing tumors](https://www.nature.com/articles/s41588-020-0687-1).
 
 ## Model details
 
