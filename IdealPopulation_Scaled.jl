@@ -157,7 +157,7 @@ function birthdeath_neoep(b0, d0, Nmax, p, neoep_dist, initial_mut=10, mu=1, imm
 
         #if every cell dies, restart simulation from a single cell again
         if (N == 0)
-            cells, mutID, muts, nonimm, N = start_population(p, initial_mut, neoep_dist)
+            cells, mutID, muts, nonimm, N = start_population(p, neoep_dist, initial_mut)
             push!(Nvec,N)
             push!(nonimmvec, nonimm)
             push!(tvec,t)
