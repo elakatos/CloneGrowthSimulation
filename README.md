@@ -46,7 +46,7 @@ julia IdealPopulation_Scaled_withEscape.jl --help
 ```
 To run simulations at _s=-0.6_, without immune escape, up to 1,000,000 cells, using a detection limit of 10 cells and saving the output to already existing folder _sim-results_:
 ```bash
-julia IdealPopulation_Scaled_withEscape.jl --s -0.8 --Nmax 1e6 --detLim 10 --out "./sim-results"
+julia IdealPopulation_Scaled_withEscape.jl --s -0.8 --pesc 0.0 --Nmax 1e6 --detLim 10 --out "./sim-results"
 ```
 
 ## Results at a glance
