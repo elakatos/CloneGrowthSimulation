@@ -2,6 +2,8 @@
 
 Mutations accumulated in a developing tumour can give rise to genetic alterations that lead to a novel peptide sequence presented on the cell surface and picked up by the immune system identifying the tumour as 'non-self'. Such mutations have the potential to elicit an immune response and consequently result in an increased death probability of their host cell. The scripts in this repository implement a stochastic branching process-based simulation of tumour growth, taking into account the chance acqusition of neoantigen/neoepitope mutations and consequent immune predation. For results and further discussion, see our article, [Evolutionary dynamics of neoantigens in growing tumors](https://www.nature.com/articles/s41588-020-0687-1).
 
+**Update February 2026**: Code has been updated to work with Julia 1.x (tested on Julia 1.12), legacy code moved to archive/julia_0.5.
+
 ## Model details
 
 ![Schematic representation of the mathematical model and analysis](Model_updated.png)
@@ -37,10 +39,14 @@ The simulated escape is an approximation of active evasion (such as PD-L1 overex
 
 ### Running simulations
 
-The base simulation of the model can be found in _IdealPopulation_Scaled.jl_. All other files are based on the same code but contain small modifications, as explained in the header of each file, together with the parameters needed and outputs produced by the script. The parameters listed have to be defined for the script to run. An easy and flexible way to do so is creating a _parameters.txt_ file (or modifying the provided _parameters_example.txt_) and running the following:
+The base simulation of the model can be found in _IdealPopulation_Scaled_withEscape.jl_. All other files are based on the same code but contain small modifications, as explained in the header of each file, together with the parameters needed and outputs produced by the script. Parameters are passed on as arguments to each jl script. At a minimum, the selection parameter _s_ needs to be defined, but others can be modified from their default value. For example, one can run simulations without immune escape by setting the escape parameter _pesc_ to 0.  
+To list all arguments and default values:
 ```bash
-cat parameters.txt IdealPopulation_Scaled.jl > CurrentSim.jl
-julia CurrentSim.jl
+julia IdealPopulation_Scaled_withEscape.jl --help
+```
+To run simulations at _s=-0.6_, without immune escape, up to 1,000,000 cells, using a detection limit of 10 cells and saving the output to already existing folder _sim-results_:
+```bash
+julia IdealPopulation_Scaled_withEscape.jl --s -0.8 --pesc 0.0 --Nmax 1e6 --detLim 10 --out "./sim-results"
 ```
 
 ## Results at a glance
