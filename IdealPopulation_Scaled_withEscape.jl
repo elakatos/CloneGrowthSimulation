@@ -36,6 +36,7 @@ struct SimParams
     tmax::Float64
     detLim::Int
     imut::Int
+    nSim::Int
     folder::String
 end
 
@@ -92,6 +93,10 @@ function parse_parameters()
             arg_type = String
             default = "."
             help = "Output folder"
+        "--nSim"
+            arg_type = Int
+            default = 100
+            help = "Number of simulated tumours to create"
     end
 
     parsed = parse_args(s_params)
@@ -108,6 +113,7 @@ function parse_parameters()
         parsed["tmax"],
         parsed["detLim"],
         parsed["imut"],
+        parsed["nSim"],
         parsed["out"]
     )
 end
@@ -323,12 +329,16 @@ println("Running simulation with:")
 println(params)
 
 neoep_dist = Exponential(0.2)
-Nvec, tvec, mutID, mut_store, cells, immune = birthdeath_neoep(params, neoep_dist)
-println("Finished simulation.")
 
-outNDFsim = DataFrame(t=tvec, N=Nvec, nonImm=immune)
-CSV.write(params.folder*"/population_test.csv", outNDFsim)
-detected_muts = filter(i -> mut_store.count[i] > params.detLim, eachindex(mut_store.count)) # filter for mutations above detection limit
-outMutDFsim = DataFrame(imm=mut_store.immune[detected_muts], esc=mut_store.escape[detected_muts], count=mut_store.count[detected_muts])
-CSV.write(params.folder*"/mutations_test.csv", outMutDFsim)
-println("Saved simulation results.")
+print("Simulation number: ")
+for i = 1:params.nSim
+    Nvec, tvec, mutID, mut_store, cells, immune = birthdeath_neoep(params, neoep_dist)
+    outNDFsim = DataFrame(t=tvec, N=Nvec, nonImm=immune)
+    CSV.write(params.folder*"/population_"*string(i)*".csv", outNDFsim)
+    detected_muts = filter(i -> mut_store.count[i] > params.detLim, eachindex(mut_store.count)) # filter for mutations above detection limit
+    outMutDFsim = DataFrame(imm=mut_store.immune[detected_muts], esc=mut_store.escape[detected_muts], count=mut_store.count[detected_muts])
+    CSV.write(params.folder*"/mutations_"*string(i)*".csv", outMutDFsim)
+    print(string(i)*"..")
+end
+
+println("\nFinished simulation and saved simulation results.")
