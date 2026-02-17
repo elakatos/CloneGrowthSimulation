@@ -139,7 +139,6 @@ end
 # Cancer cell
 # ==============================
 mutable struct CancerCell
-    fitness::Float64
     epnumber::Float64
     escaped::Bool
     nonimmunogenic::Bool
@@ -166,7 +165,6 @@ function add_mutations!(
             neoep_val = max(0.0, rand(neoep_dist))
             push!(store.immune, neoep_val)
             cell.epnumber += neoep_val
-            cell.fitness = getFitness(cell.epnumber, params.s)
             cell.nonimmunogenic = cell.epnumber < params.immThresh
         else
             push!(store.immune, 0.0)
@@ -196,7 +194,7 @@ function start_population(params::SimParams, neoep_dist)
     mut_store = MutationStore(Float64[],Bool[],Int[])
     mutID = 1
 
-    cell = CancerCell(1.0, 0.0, false, true, Int[])
+    cell = CancerCell(0.0, false, true, Int[])
     push!(cells, cell)
 
     mutID = add_mutations!(
@@ -248,8 +246,9 @@ function birthdeath_neoep(
         Nt = N
 
         # death rate, defined based on escape status and fitness (note that fitness can even be <0)
+        cell_fitness = getFitness(cell.epnumber, params.s)
         d = cell.escaped ? params.d0 :
-            max(0.0, (params.d0 - params.b0) * cell.fitness + params.b0)
+            max(0.0, (params.d0 - params.b0) * cell_fitness + params.b0)
 
         dmax = max(dmax, d)
         Rmax = params.b0 + dmax
@@ -263,7 +262,6 @@ function birthdeath_neoep(
 
             # copy
             newcell = CancerCell(
-                cell.fitness,
                 cell.epnumber,
                 cell.escaped,
                 cell.nonimmunogenic,
@@ -313,6 +311,7 @@ function birthdeath_neoep(
             cells, mutID, mut_store, nonimm =
                 start_population(params, neoep_dist)
             N = 1
+            dmax = params.d0     # when population restarts, we reset dmax as well
             push!(Nvec, N)
             push!(tvec, t)
             push!(nonimmvec, nonimm)
