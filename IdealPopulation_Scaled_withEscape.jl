@@ -24,7 +24,7 @@ using DataFrames
 # ==============================
 # Parameter container and initialisation
 # ==============================
-struct SimParams
+struct SimParams{F}
     b0::Float64
     d0::Float64
     Nmax::Int
@@ -32,10 +32,13 @@ struct SimParams
     pesc::Float64
     mu::Float64
     s::Float64
+    fitness_function::F
     immThresh::Float64
     tmax::Float64
     detLim::Int
     imut::Int
+    clonalEscape::Bool
+    clonalImm::Float64
     nSim::Int
     folder::String
 end
@@ -69,6 +72,10 @@ function parse_parameters()
             arg_type = Float64
             default = 1e-6
             help = "Probability of escape mutation"
+        "--fitness"
+            arg_type = String
+            default = "linear"
+            help = "Name of fitness function to use, available options are: linear / threshold / log"
         "--b0"
             arg_type = Float64
             default = 1.0
@@ -89,6 +96,14 @@ function parse_parameters()
             arg_type = Int
             default = 5
             help = "Lower limit of mutation detection, in number of cells carrying mutation"
+        "--cEscape"
+            arg_type = Bool
+            default = false
+            help = "Boolean to deterministically set if the founder cell is escaped"
+        "--cImm"
+            arg_type = Float64
+            default = -1.0
+            help = "Deterministically set value of the founder cell's immunogenicity; negative values keep the assignment random"
         "--out"
             arg_type = String
             default = "."
@@ -109,21 +124,36 @@ function parse_parameters()
         parsed["pesc"],
         parsed["mu"],
         parsed["s"],
+        get_fitness_function(parsed["fitness"]),
         parsed["immThresh"],
         parsed["tmax"],
         parsed["detLim"],
         parsed["imut"],
+        parsed["cEscape"],
+        parsed["cImm"],
         parsed["nSim"],
         parsed["out"]
     )
 end
 
-
 # ==============================
 # Fitness function
 # ==============================
-function getFitness(n, s)
-    return 1 + s * n
+
+linear_fitness(n, s) = 1 + s*n
+threshold_fitness(n, s) = n > 1.0 ? 0.0 : 1.0
+log_fitness(n, s) = 1 + s*log(2*n+1)
+
+function get_fitness_function(name)
+    if name == "linear"
+        return linear_fitness
+    elseif name == "log"
+        return log_fitness
+    elseif name == "threshold"
+        return threshold_fitness
+    else
+        error("Unknown fitness function: $name")
+    end
 end
 
 # ==============================
@@ -194,13 +224,25 @@ function start_population(params::SimParams, neoep_dist)
     mut_store = MutationStore(Float64[],Bool[],Int[])
     mutID = 1
 
-    cell = CancerCell(0.0, false, true, Int[])
+    if params.clonalImm >= 0.0 # if there is a pre-defined immunogenicity value for the first cell
+        if params.clonalEscape
+            cell = CancerCell(params.clonalImm, true, params.clonalImm < params.immThresh, Int[])
+        else
+            cell = CancerCell(params.clonalImm, false, params.clonalImm < params.immThresh, Int[])
+        end
+    else # otherwise, add mutations and immunogenicity (and potentially escape) is decided stochastically
+        if params.clonalEscape
+            cell = CancerCell(0.0, true, true, Int[])
+        else
+            cell = CancerCell(0.0, false, true, Int[])
+        end
+        mutID = add_mutations!(
+            cell, mut_store, mutID, params, neoep_dist, params.imut
+        )
+
+    end
+
     push!(cells, cell)
-
-    mutID = add_mutations!(
-        cell, mut_store, mutID, params, neoep_dist, params.imut
-    )
-
     nonimm = 0
     nonimm = cell.nonimmunogenic
 
@@ -246,7 +288,7 @@ function birthdeath_neoep(
         Nt = N
 
         # death rate, defined based on escape status and fitness (note that fitness can even be <0)
-        cell_fitness = getFitness(cell.epnumber, params.s)
+        cell_fitness = params.fitness_function(cell.epnumber, params.s)
         d = cell.escaped ? params.d0 :
             max(0.0, (params.d0 - params.b0) * cell_fitness + params.b0)
 
@@ -338,6 +380,8 @@ for i = 1:params.nSim
     outMutDFsim = DataFrame(imm=mut_store.immune[detected_muts], esc=mut_store.escape[detected_muts], count=mut_store.count[detected_muts])
     CSV.write(params.folder*"/mutations_"*string(i)*".csv", outMutDFsim)
     print(string(i)*"..")
+    epnums = [c.epnumber for c in cells]
+    writedlm(params.folder*"/cell_immunogenicities_"*string(i)*".txt", epnums)
 end
 
 println("\nFinished simulation and saved simulation results.")
