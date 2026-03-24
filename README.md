@@ -39,14 +39,18 @@ The simulated escape is an approximation of active evasion (such as PD-L1 overex
 
 ### Running simulations
 
-The base simulation of the model can be found in _IdealPopulation_Scaled_withEscape.jl_. All other files are based on the same code but contain small modifications, as explained in the header of each file, together with the parameters needed and outputs produced by the script. Parameters are passed on as arguments to each jl script. At a minimum, the selection parameter _s_ needs to be defined, but others can be modified from their default value. For example, one can run simulations without immune escape by setting the escape parameter _pesc_ to 0.  
+The base simulation of the model can be found in _IdealPopulation_Scaled_withEscape.jl_. Parameters are passed on as arguments to the script: at a minimum, the selection parameter _s_ needs to be defined, but others can be modified from their default values. For example, one can run simulations without immune escape by setting the escape parameter _pesc_ to 0. Parameters _cEscape_ and _cImm_ evoke deterministically setting values of the founder cell, resulting in special cases of the otherwise fully stochastic simulation. One can simulate multiple tumour with identical parameters using the option _nSim_.
 To list all arguments and default values:
 ```bash
 julia IdealPopulation_Scaled_withEscape.jl --help
 ```
 To run simulations at _s=-0.6_, without immune escape, up to 1,000,000 cells, using a detection limit of 10 cells and saving the output to already existing folder _sim-results_:
 ```bash
-julia IdealPopulation_Scaled_withEscape.jl --s -0.8 --pesc 0.0 --Nmax 1e6 --detLim 10 --out "./sim-results"
+julia IdealPopulation_Scaled_withEscape.jl --s -0.8 --pesc 0.0 --Nmax 1000000 --detLim 10 --out "./sim-results"
+```
+To run 20 simulations at _s=-0.4_, up to 100,000 cells, while setting the founder cell to not have immune escape and have a starting immunogenicity value of 1.0 (note that in this case, the founder cell does not acquire additional mutations):
+```bash
+julia IdealPopulation_Scaled_withEscape.jl --s -0.4 --Nmax 100000 --cEscape false --cImm 1.0 --nSim 20
 ```
 
 ## Results at a glance
