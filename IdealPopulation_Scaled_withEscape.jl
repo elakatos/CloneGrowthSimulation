@@ -1,13 +1,12 @@
 #=
-    Julia code implementing simulations of a stochastic branching process model of tumour growth and mutation accumulations, under negative selection from the immune system due to randomly arising antigenic mutations. This code corresponds to an ideal population/measurement, with no measurement noise (but intrinsic stochasticity) and user-defined detection limit for mutations.
-
+    Julia code implementing simulations of a stochastic branching process model of tumour growth and mutation accumulations, under negative selection from the immune system due to randomly arising antigenic mutations. This code corresponds to an ideal population/measurement, with no measurement noise (but intrinsic stochasticity) and a detection limit for mutations at the final time-point.
     For details of the model see Lakatos et al, Nat Genet, 2020: 10.1038/s41588-020-0687-1 and the Readme at https://github.com/elakatos/CloneGrowthSimulation
 
-    This file implements the base simulations with probabilistic active immune escape, acquired by chance throughout tumour growth.
-    Parameters: d0, popSize, detLim, p, initial_mut, mu, neoep_dist, pesc
+    This file implements the base simulations with active immune escape that can be defined in two ways: acquired by chance throughout tumour growth (each mutation having pesc probability of being an escape mutation); or assigned to the founder cell. Since outputs are stochastic, a total of nSim (default 100) tumours are simulated per parameter set. Additional variations of the model that can be changed/defined via options: immune selection strength; fitness function based on antigenicity; mutation count, immunogenicity and escape of founder cell; whether all or only full-size tumours are saved. For a full list of options and default values, run with the --help option.
     Outputs:
-        - mutations_<i>.txt : data frame of mutations with their antigenicity value, escape status (true/false) and number of cells the mutation was observed. Mutations below detection limit are outputted
-        - population_<i>.txt : cell growth curve with time, total population and non-immunogenic population in three comma-separated columns
+        - mutations_<i>.txt : data frame of mutations with their antigenicity value, escape status (true/false) and number of cells the mutation was observed. Mutations below detection limit are omitted
+        - population_<i>.txt : data frame with cell growth curve showing time, total population and non-immunogenic population in three comma-separated columns
+        - cell_immunogenicities_<i>.txt: list of cell immunogenicities at the final timepoint
 
     @Author: Eszter Lakatos (eszter.lakatos@chalmers.se)
 =#
@@ -40,6 +39,7 @@ struct SimParams{F}
     clonalEscape::Bool
     clonalImm::Float64
     nSim::Int
+    detOnly::Bool
     folder::String
 end
 
@@ -112,6 +112,10 @@ function parse_parameters()
             arg_type = Int
             default = 100
             help = "Number of simulated tumours to create"
+        "--detOnly"
+            arg_type = Bool
+            default = false
+            help = "Boolean whether only save tumours that reached detectable size (Nmax) by end of simulation"
     end
 
     parsed = parse_args(s_params)
@@ -132,6 +136,7 @@ function parse_parameters()
         parsed["cEscape"],
         parsed["cImm"],
         parsed["nSim"],
+        parsed["detOnly"],
         parsed["out"]
     )
 end
@@ -372,16 +377,21 @@ println(params)
 neoep_dist = Exponential(0.2)
 
 print("Simulation number: ")
-for i = 1:params.nSim
+i = 1
+while i < (params.nSim+1)
     Nvec, tvec, mutID, mut_store, cells, immune = birthdeath_neoep(params, neoep_dist)
+    if params.detOnly && (Nvec[end] < params.Nmax) # don't save tumour if not reached Nmax and we only want detectable ones
+        continue
+    end
     outNDFsim = DataFrame(t=tvec, N=Nvec, nonImm=immune)
     CSV.write(params.folder*"/population_"*string(i)*".csv", outNDFsim)
     detected_muts = filter(i -> mut_store.count[i] > params.detLim, eachindex(mut_store.count)) # filter for mutations above detection limit
-    outMutDFsim = DataFrame(imm=mut_store.immune[detected_muts], esc=mut_store.escape[detected_muts], count=mut_store.count[detected_muts])
+    outMutDFsim = DataFrame(id=detected_muts, imm=mut_store.immune[detected_muts], esc=mut_store.escape[detected_muts], count=mut_store.count[detected_muts])
     CSV.write(params.folder*"/mutations_"*string(i)*".csv", outMutDFsim)
-    print(string(i)*"..")
     epnums = [c.epnumber for c in cells]
     writedlm(params.folder*"/cell_immunogenicities_"*string(i)*".txt", epnums)
+    print(string(i)*"..")
+    global i += 1
 end
 
 println("\nFinished simulation and saved simulation results.")
