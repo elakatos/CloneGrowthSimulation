@@ -371,8 +371,7 @@ end
 
 
 params = parse_parameters()
-println("Running simulation with:")
-println(params)
+JSON.json(params.folder*"/parameters.json", params)
 
 neoep_dist = Exponential(0.2)
 
