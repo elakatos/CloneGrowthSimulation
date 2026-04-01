@@ -19,6 +19,7 @@ using Random
 using CSV
 using DelimitedFiles
 using DataFrames
+using JSON
 
 # ==============================
 # Parameter container and initialisation
