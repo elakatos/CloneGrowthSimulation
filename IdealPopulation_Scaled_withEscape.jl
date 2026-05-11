@@ -76,7 +76,7 @@ function parse_parameters()
         "--fitness"
             arg_type = String
             default = "linear"
-            help = "Name of fitness function to use, available options are: linear / threshold / log"
+            help = "Name of fitness function to use, available options are: linear / threshold / log / tanh"
         "--b0"
             arg_type = Float64
             default = 1.0
@@ -149,6 +149,7 @@ end
 linear_fitness(n, s) = 1 + s*n
 threshold_fitness(n, s) = n > 1.0 ? 0.0 : 1.0
 log_fitness(n, s) = 1 + s*log(2*n+1)
+tanh_fitness(n, s) = 1 + s*(exp(n) - exp(-n))/(exp(n) + exp(-n))
 
 function get_fitness_function(name)
     if name == "linear"
@@ -157,6 +158,8 @@ function get_fitness_function(name)
         return log_fitness
     elseif name == "threshold"
         return threshold_fitness
+    elseif name == "tanh"
+        return tanh_fitness
     else
         error("Unknown fitness function: $name")
     end
